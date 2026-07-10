@@ -1,5 +1,6 @@
 import os
 import sys
+import time 
 import asyncio
 import random
 import requests
@@ -33,8 +34,9 @@ MODEL_FALLBACK_CHAIN = [
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemma-4-26b-a4b-it:free",
     "meta-llama/llama-3.2-3b-instruct:free",
-    "google/gemma-3-27b-it:free",
-    "deepseek/deepseek-r1-0528:free",
+    "cohere/north-mini-code:free",
+    "poolside/laguna-xs-2.1:free",
+    "liquid/lfm-2.5-1.2b-instruct:free",
 ]
 MAX_RETRIES = 5
 
