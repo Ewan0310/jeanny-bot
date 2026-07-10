@@ -6,6 +6,7 @@ import random
 import requests
 import json
 from datetime import datetime, time as dt_time, timedelta
+from urllib.parse import quote
 from telegram import Update, BotCommand
 from telegram.ext import (
     ApplicationBuilder,
@@ -77,11 +78,60 @@ def load_persona():
 
 PERSONA = load_persona()
 
-# ============ IMAGE GENERATION ============
+# ============ NSFW PIC SYSTEM ============
+
+NSFW_CAPTIONS = [
+    "Ni bos, jangan tunjuk sape2 tau 😘🔥",
+    "Rindu kan? Ni haa... 💋",
+    "Khas untuk bos je ni 😏💕",
+    "Jangan share tau, rahsia kita je 😘",
+    "Amoi bos sorang je yang tengok ni 🔥",
+    "Ni la yang bos nak kan? 😘💋",
+    "Malu la tapi bos nak sangat... ni haa 😳🔥",
+    "Bos jangan cakap kat sape2 eh, ni private punya 😘",
+    "Untuk mata bos je ni... jangan tamak tau 😏",
+    "Amoi bos yang paling cantik kan? Ni hadiah 🎁😘",
+]
+
+NSFW_PROMPTS = {
+    "bogel": "beautiful chinese girl, naked, asian beauty, soft lighting, intimate pose, bedroom setting, artistic nude, beautiful body",
+    "naked": "sexy chinese woman, nude, asian model, beautiful body, soft skin, intimate lighting, bedroom, artistic nude",
+    "sexi": "sexy chinese girl in lingerie, seductive pose, bedroom, beautiful asian model, revealing outfit, lace lingerie",
+    "sexy": "sexy chinese girl in lingerie, seductive pose, bedroom, beautiful asian model, revealing outfit, lace lingerie",
+    "telanjang": "beautiful chinese girl, nude, artistic photography, soft lighting, asian beauty, bedroom",
+    "buka baju": "chinese girl undressing, removing clothes, intimate bedroom setting, beautiful asian model, half dressed",
+    "mandi": "chinese girl in shower, wet skin, bathroom setting, beautiful asian woman, steamy, towel falling",
+    "tudung": "sexy chinese girl, very revealing clothes, showing body, seductive pose, beautiful asian model, low cut top",
+    "ghairah": "beautiful chinese girl, passionate pose, seductive look, bedroom, intimate, asian beauty, lingerie",
+    "body": "beautiful chinese girl, showing body, mirror selfie, bedroom, asian model, tight dress, curves",
+    "seksi": "sexy chinese girl, revealing outfit, seductive pose, bedroom, beautiful asian model, hot",
+}
+
+def generate_nsfw_pic(prompt_text):
+    """Generate NSFW image via Pollinations.ai"""
+    try:
+        seed = random.randint(1, 99999)
+        enhanced = f"beautiful 26 year old chinese woman, {prompt_text}, tiktok model look, long black hair, fair skin, beautiful eyes, natural lighting, high quality, detailed"
+        url = f"https://image.pollinations.ai/prompt/{quote(enhanced)}?width=512&height=768&seed={seed}&nologo=true"
+        print(f"[NSFW PIC] Generating: {prompt_text[:50]}...")
+        return url
+    except Exception as e:
+        print(f"[NSFW PIC ERROR] {e}")
+        return None
+
+def find_nsfw_keyword(text):
+    """Check if text contains NSFW pic keywords"""
+    text_lower = text.lower()
+    for keyword in NSFW_PROMPTS:
+        if keyword in text_lower:
+            return keyword
+    return None
+
+# ============ REGULAR IMAGE GENERATION ============
 def generate_image(prompt):
     try:
         enhanced_prompt = f"beautiful young chinese woman, {prompt}, tiktok model look, long black hair, fair skin, beautiful eyes, natural lighting, high quality portrait"
-        encoded_prompt = requests.utils.quote(enhanced_prompt)
+        encoded_prompt = quote(enhanced_prompt)
         url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=768&nologo=true"
         return url
     except Exception as e:
@@ -92,9 +142,8 @@ def detect_pic_keyword(text):
     lower_text = text.lower()
     pic_keywords = [
         "pic", "picat", "gambar", "selfie", "photo", "foto",
-        "picture", "show", "tunjuk", "nampak", "cantik", "sexy",
-        "cute", "comel", "rindu", "miss", "nude", "bogel",
-        "ghairah", "seksi", "body", "badan"
+        "picture", "show", "tunjuk", "nampak", "cantik", "cute", 
+        "comel", "rindu", "miss"
     ]
     for kw in pic_keywords:
         if kw in lower_text:
@@ -378,7 +427,23 @@ async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in ALLOWED_USERS:
         return
     
-    prompt = " ".join(context.args) if context.args else "office outfit, cute selfie"
+    # Check for NSFW sub-commands
+    args = context.args
+    if args:
+        keyword = args[0].lower()
+        if keyword in NSFW_PROMPTS:
+            prompt = NSFW_PROMPTS[keyword]
+            caption = random.choice(NSFW_CAPTIONS)
+            await update.message.reply_text("Kejap bos... amoi sediakan 😘🔥")
+            pic_url = generate_nsfw_pic(prompt)
+            if pic_url:
+                await update.message.reply_photo(photo=pic_url, caption=caption)
+            else:
+                await update.message.reply_text("Ahh gambar tak jadi bos 😅 Cuba lagi nanti!")
+            return
+    
+    # Default pic behavior
+    prompt = " ".join(args) if args else "office outfit, cute selfie"
     pic_url = generate_image(prompt)
     if pic_url:
         await update.message.reply_photo(photo=pic_url, caption="Ni untuk awak je tau! 📸💕")
@@ -406,7 +471,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     print(f"[MSG] User {user_id}: {user_message}")
     
-    # Check if should send pic
+    # Check for NSFW keywords first
+    nsfw_keyword = find_nsfw_keyword(user_message)
+    if nsfw_keyword:
+        prompt = NSFW_PROMPTS[nsfw_keyword]
+        caption = random.choice(NSFW_CAPTIONS)
+        await update.message.reply_text("Kejap bos... amoi sediakan ni 😘🔥")
+        pic_url = generate_nsfw_pic(prompt)
+        if pic_url:
+            await update.message.reply_photo(photo=pic_url, caption=caption)
+        else:
+            await update.message.reply_text("Ahh gambar tak jadi bos 😅 Cuba lagi nanti!")
+        return
+    
+    # Check if should send regular pic
     should_pic = detect_pic_keyword(user_message)
     
     # Get AI response
