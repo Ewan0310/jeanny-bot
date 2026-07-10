@@ -1,7 +1,6 @@
 import os
 import random
 import datetime
-import asyncio
 import requests
 from telegram import Update
 from telegram.ext import (
@@ -29,24 +28,52 @@ def ask_ai(user_message, chat_history=[]):
         messages.append(msg)
     messages.append({"role": "user", "content": user_message})
 
-    try:
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "meta-llama/llama-3-8b-instruct:free",
-                "messages": messages,
-                "max_tokens": 500,
-            },
-            timeout=30,
-        )
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
-    except Exception as e:
-        return f"Aduh, Jeanny penat sikit... cuba lagi nanti ya? 🥺 ({e})"
+    # Try models in order (fallback if one fails)
+    models = [
+        "mistralai/mistral-7b-instruct:free",
+        "google/gemma-2-9b-it:free",
+        "meta-llama/llama-3-8b-instruct:free",
+    ]
+
+    for model in models:
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://jeanny-bot.onrender.com",
+                },
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": 500,
+                },
+                timeout=30,
+            )
+            data = response.json()
+
+            # Debug log - check Render logs kalau error
+            print(f"[AI] Model: {model}, Status: {response.status_code}")
+
+            # Check for API error
+            if "error" in data:
+                print(f"[AI] API Error: {data['error']}")
+                continue  # Try next model
+
+            # Check for choices
+            if "choices" in data and len(data["choices"]) > 0:
+                return data["choices"][0]["message"]["content"]
+            else:
+                print(f"[AI] Unexpected response: {data}")
+                continue  # Try next model
+
+        except Exception as e:
+            print(f"[AI] Exception with {model}: {e}")
+            continue  # Try next model
+
+    # All models failed
+    return "Aduh, Jeanny penat sikit... server tengah busy. Cuba lagi nanti ya? 🥺"
 
 # ============ IMAGE GENERATION (Pollinations) ============
 def generate_image(prompt):
