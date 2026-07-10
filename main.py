@@ -27,6 +27,7 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+FAL_API_KEY = os.environ.get("FAL_API_KEY")
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 PORT = int(os.environ.get("PORT", 10000))
 
@@ -50,7 +51,6 @@ OPENROUTER_MODELS = [
     "liquid/lfm-2.5-1.2b-instruct:free",
 ]
 
-# Together.ai NSFW models
 TOGETHER_NSFW_MODELS = [
     "stabilityai/stable-diffusion-xl-base-1.0",
     "SG161222/Realistic_Vision_V6.0_B1_noVAE",
@@ -113,8 +113,74 @@ NSFW_PROMPTS = {
     "seksi": "sexy chinese girl, revealing outfit, seductive pose, bedroom, beautiful asian model, hot",
 }
 
+# ============ FAL.AI NSFW GENERATION (PRIMARY) ============
+def generate_image_fal(prompt_text):
+    """Generate uncensored NSFW image via fal.ai FLUX - PRIMARY"""
+    try:
+        enhanced = f"beautiful 26 year old chinese woman, {prompt_text}, tiktok model look, long black hair, fair skin, beautiful eyes, natural lighting, high quality, detailed, 8k uhd, masterpiece"
+        
+        print(f"[FAL] Generating: {enhanced[:80]}...")
+        
+        response = requests.post(
+            "https://fal.run/fal-ai/flux/schnell",
+            headers={
+                "Authorization": f"Key {FAL_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "prompt": enhanced,
+                "image_size": "portrait_4_3",
+                "num_inference_steps": 4,
+                "num_images": 1,
+            },
+            timeout=60,
+        )
+        
+        print(f"[FAL] Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Check for images array
+            if "images" in data and len(data["images"]) > 0:
+                image_url = data["images"][0].get("url")
+                if image_url:
+                    img_response = requests.get(image_url, timeout=30)
+                    if img_response.status_code == 200:
+                        temp_path = f"/tmp/fal_{random.randint(1000,9999)}.png"
+                        with open(temp_path, "wb") as f:
+                            f.write(img_response.content)
+                        print(f"[FAL] Success! Saved to {temp_path}")
+                        return temp_path
+            
+            # Check for single image key
+            elif "image" in data:
+                image_url = data["image"].get("url")
+                if image_url:
+                    img_response = requests.get(image_url, timeout=30)
+                    if img_response.status_code == 200:
+                        temp_path = f"/tmp/fal_{random.randint(1000,9999)}.png"
+                        with open(temp_path, "wb") as f:
+                            f.write(img_response.content)
+                        print(f"[FAL] Success! Saved to {temp_path}")
+                        return temp_path
+            
+            print(f"[FAL] Unexpected response format: {json.dumps(data)[:300]}")
+        else:
+            print(f"[FAL] Error {response.status_code}: {response.text[:300]}")
+            
+    except requests.exceptions.Timeout:
+        print("[FAL] Request timeout")
+    except Exception as e:
+        print(f"[FAL] Error: {e}")
+    
+    # Fallback to Together.ai
+    print("[FAL] Falling back to Together.ai...")
+    return generate_nsfw_pic(prompt_text)
+
+# ============ TOGETHER.AI FALLBACK ============
 def generate_nsfw_pic(prompt_text):
-    """Generate NSFW image via Together.ai API"""
+    """Generate NSFW image via Together.ai API - FALLBACK"""
     try:
         enhanced = f"beautiful 26 year old chinese woman, {prompt_text}, tiktok model look, long black hair, fair skin, beautiful eyes, natural lighting, high quality, detailed, 8k uhd"
 
@@ -221,7 +287,6 @@ def ask_ai(user_id, message):
 
     memory["last_interaction"] = now
 
-    # Add time context
     current_hour = now.hour
     time_context = ""
     if 6 <= current_hour < 12:
@@ -257,7 +322,6 @@ IMPORTANT RULES:
 
     for attempt in range(1, MAX_RETRIES + 1):
 
-        # ========== TRY GROQ FIRST (PRIMARY) ==========
         if GROQ_API_KEY:
             for model in GROQ_MODELS:
                 try:
@@ -311,7 +375,6 @@ IMPORTANT RULES:
                     print(f"[GROQ] Error: {e}")
                     continue
 
-        # ========== FALLBACK TO OPENROUTER ==========
         if OPENROUTER_API_KEY:
             for model in OPENROUTER_MODELS:
                 try:
@@ -367,7 +430,6 @@ IMPORTANT RULES:
                     print(f"[OPENROUTER] Error: {e}")
                     continue
 
-        # All models failed this round, wait before retry
         if attempt < MAX_RETRIES:
             wait = 5
             print(f"[AI] All models busy, waiting {wait}s before retry...")
@@ -469,7 +531,11 @@ async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             prompt = NSFW_PROMPTS[keyword]
             caption = random.choice(NSFW_CAPTIONS)
             await update.message.reply_text("Kejap bos... amoi sediakan 😘🔥")
-            pic_result = generate_nsfw_pic(prompt)
+            # USE FAL.AI FIRST (UNCENSORED)
+            if FAL_API_KEY:
+                pic_result = generate_image_fal(prompt)
+            else:
+                pic_result = generate_nsfw_pic(prompt)
             if pic_result:
                 if pic_result.endswith(".png"):
                     await update.message.reply_photo(photo=open(pic_result, "rb"), caption=caption)
@@ -513,7 +579,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prompt = NSFW_PROMPTS[nsfw_keyword]
         caption = random.choice(NSFW_CAPTIONS)
         await update.message.reply_text("Kejap bos... amoi sediakan ni 😘🔥")
-        pic_result = generate_nsfw_pic(prompt)
+        # USE FAL.AI FIRST (UNCENSORED)
+        if FAL_API_KEY:
+            pic_result = generate_image_fal(prompt)
+        else:
+            pic_result = generate_nsfw_pic(prompt)
         if pic_result:
             if pic_result.endswith(".png"):
                 await update.message.reply_photo(photo=open(pic_result, "rb"), caption=caption)
@@ -562,9 +632,13 @@ if __name__ == "__main__":
     if OPENROUTER_API_KEY:
         print("[BOOT] OpenRouter API: READY ✅ (FALLBACK)")
     if TOGETHER_API_KEY:
-        print("[BOOT] Together.ai API: READY ✅l (NSFW PICS)")
+        print("[BOOT] Together.ai API: READY ✅ (NSFW PICS FALLBACK)")
     else:
         print("[BOOT] Together.ai API: NOT SET ⚠️ (NSFW pics will use Pollinations)")
+    if FAL_API_KEY:
+        print("[BOOT] fal.ai API: READY ✅ (NSFW PICS PRIMARY - UNCENSORED)")
+    else:
+        print("[BOOT] fal.ai API: NOT SET ⚠️ (NSFW pics will use Together.ai)")
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
