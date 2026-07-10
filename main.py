@@ -2,9 +2,7 @@ import os
 import random
 import datetime
 import asyncio
-import threading
 import requests
-from flask import Flask
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -13,17 +11,6 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-
-# ============ FLASK KEEP-ALIVE SERVER ============
-app_flask = Flask(__name__)
-
-@app_flask.route("/")
-def home():
-    return "Jeanny bot is alive! 💖"
-
-def run_flask():
-    app_flask.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
-
 
 # ============ ENV VARIABLES ============
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -182,7 +169,7 @@ async def auto_message_job(context: ContextTypes.DEFAULT_TYPE):
         ]
         message = random.choice(gn_msgs)
 
-    # Random jealous/flirty every 4-6 hours (random chance)
+    # Random jealous/flirty every 4-6 hours
     elif hour in [11, 15, 19] and minute < 15:
         jealous_msgs = [
             "Eh bos, dengan sape tu? 👀 Jeanny jealous tau! 💢",
@@ -210,11 +197,6 @@ async def auto_message_job(context: ContextTypes.DEFAULT_TYPE):
 
 # ============ MAIN ============
 def main():
-    # Start Flask in background thread
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-
     # Build application
     application = Application.builder().token(BOT_TOKEN).build()
 
@@ -226,14 +208,15 @@ def main():
 
     # Add auto message job
     job_queue = application.job_queue
-    job_queue.run_repeating(auto_message_job, interval=900, first=10)  # Check every 15min
+    job_queue.run_repeating(auto_message_job, interval=900, first=10)
 
     # Use webhook for Render
     if RENDER_EXTERNAL_URL:
-        print(f"Starting webhook on {RENDER_EXTERNAL_URL}")
+        PORT = int(os.environ.get("PORT", 10000))
+        print(f"Starting webhook on {RENDER_EXTERNAL_URL} port {PORT}")
         application.run_webhook(
             listen="0.0.0.0",
-            port=10000,
+            port=PORT,
             url_path=BOT_TOKEN,
             webhook_url=f"{RENDER_EXTERNAL_URL}/{BOT_TOKEN}",
         )
