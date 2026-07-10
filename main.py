@@ -22,7 +22,8 @@ def home():
     return "Jeanny bot is alive! 💖"
 
 def run_flask():
-    app_flask.app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
+    app_flask.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
+
 
 # ============ ENV VARIABLES ============
 BOT_TOKEN = os.getenv("BOT_TOKEN")
