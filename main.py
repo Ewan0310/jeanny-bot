@@ -23,13 +23,23 @@ sys.stderr.reconfigure(line_buffering=True)
 # ============ ENVIRONMENT VARIABLES ============
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 PORT = int(os.environ.get("PORT", 10000))
 
 # ============ BOT CONFIG ============
 ADMIN_USER_ID = 92540502
 ALLOWED_USERS = {92540502}
-MODEL_FALLBACK_CHAIN = [
+
+# Groq models (PRIMARY - fast ~0.5s)
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "mixtral-8x7b-32768",
+]
+
+# OpenRouter models (FALLBACK)
+OPENROUTER_MODELS = [
     "nousresearch/hermes-3-llama-3.1-405b:free",
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemma-4-26b-a4b-it:free",
@@ -38,6 +48,7 @@ MODEL_FALLBACK_CHAIN = [
     "poolside/laguna-xs-2.1:free",
     "liquid/lfm-2.5-1.2b-instruct:free",
 ]
+
 MAX_RETRIES = 5
 
 # ============ USER MEMORY ============
@@ -140,60 +151,126 @@ IMPORTANT RULES:
     messages.extend(memory["history"])
     
     for attempt in range(1, MAX_RETRIES + 1):
-        for model in MODEL_FALLBACK_CHAIN:
-            try:
-                print(f"[AI] Attempt {attempt} | Model: {model}")
-                
-                response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": "https://jeanny-bot.onrender.com",
-                        "X-Title": "Jeanny Bot",
-                    },
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "max_tokens": 500,
-                        "temperature": 0.9,
-                    },
-                    timeout=30,
-                )
-                
-                print(f"[AI] Model: {model} | Status: {response.status_code}")
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if "choices" in data and len(data["choices"]) > 0:
-                        reply = data["choices"][0]["message"]["content"].strip()
-                        memory["history"].append({"role": "assistant", "content": reply})
-                        return reply
+        
+        # ========== TRY GROQ FIRST (PRIMARY) ==========
+        if GROQ_API_KEY:
+            for model in GROQ_MODELS:
+                try:
+                    print(f"[GROQ] Attempt {attempt} | Model: {model}")
+                    
+                    response = requests.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {GROQ_API_KEY}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "max_tokens": 500,
+                            "temperature": 0.9,
+                        },
+                        timeout=15,
+                    )
+                    
+                    print(f"[GROQ] Model: {model} | Status: {response.status_code}")
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if "choices" in data and len(data["choices"]) > 0:
+                            content = data["choices"][0]["message"].get("content")
+                            if content and content.strip():
+                                reply = content.strip()
+                                memory["history"].append({"role": "assistant", "content": reply})
+                                return reply
+                            else:
+                                print(f"[GROQ] Content is None/empty, trying next...")
+                                continue
+                        else:
+                            print(f"[GROQ] Unexpected response: {json.dumps(data)[:200]}")
+                    
+                    elif response.status_code == 429:
+                        try:
+                            error_data = response.json()
+                            retry_after = error_data.get("error", {}).get("metadata", {}).get("retry_after_seconds", 5)
+                            wait_time = min(int(retry_after), 5)
+                        except:
+                            wait_time = 3
+                        print(f"[GROQ] Rate limited! Waiting {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    
                     else:
-                        print(f"[AI] Unexpected response: {json.dumps(data)[:200]}")
-                
-                elif response.status_code == 429:
-                    try:
-                        error_data = response.json()
-                        retry_after = error_data.get("error", {}).get("metadata", {}).get("retry_after_seconds", 5)
-                        wait_time = min(int(retry_after), 5)  # Cap at 5s
-                    except:
-                        wait_time = 3
-                    
-                    print(f"[AI] Rate limited! Waiting {wait_time}s...")
-                    time.sleep(wait_time)
+                        print(f"[GROQ] Error: {response.text[:300]}")
+                        continue
+                        
+                except requests.exceptions.Timeout:
+                    print(f"[GROQ] Timeout for {model}")
                     continue
-                
-                else:
-                    print(f"[AI] API Error: {response.text[:300]}")
+                except Exception as e:
+                    print(f"[GROQ] Error: {e}")
                     continue
+        
+        # ========== FALLBACK TO OPENROUTER ==========
+        if OPENROUTER_API_KEY:
+            for model in OPENROUTER_MODELS:
+                try:
+                    print(f"[OPENROUTER] Attempt {attempt} | Model: {model}")
                     
-            except requests.exceptions.Timeout:
-                print(f"[AI] Timeout for {model}")
-                continue
-            except Exception as e:
-                print(f"[AI] Error: {e}")
-                continue
+                    response = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://jeanny-bot.onrender.com",
+                            "X-Title": "Jeanny Bot",
+                        },
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "max_tokens": 500,
+                            "temperature": 0.9,
+                        },
+                        timeout=30,
+                    )
+                    
+                    print(f"[OPENROUTER] Model: {model} | Status: {response.status_code}")
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if "choices" in data and len(data["choices"]) > 0:
+                            content = data["choices"][0]["message"].get("content")
+                            if content and content.strip():
+                                reply = content.strip()
+                                memory["history"].append({"role": "assistant", "content": reply})
+                                return reply
+                            else:
+                                print(f"[OPENROUTER] Content is None/empty, trying next...")
+                                continue
+                        else:
+                            print(f"[OPENROUTER] Unexpected response: {json.dumps(data)[:200]}")
+                    
+                    elif response.status_code == 429:
+                        try:
+                            error_data = response.json()
+                            retry_after = error_data.get("error", {}).get("metadata", {}).get("retry_after_seconds", 5)
+                            wait_time = min(int(retry_after), 5)
+                        except:
+                            wait_time = 3
+                        print(f"[OPENROUTER] Rate limited! Waiting {wait_time}s...")
+                        time.sleep(wait_time)
+                        continue
+                    
+                    else:
+                        print(f"[OPENROUTER] Error: {response.text[:300]}")
+                        continue
+                        
+                except requests.exceptions.Timeout:
+                    print(f"[OPENROUTER] Timeout for {model}")
+                    continue
+                except Exception as e:
+                    print(f"[OPENROUTER] Error: {e}")
+                    continue
         
         # All models failed this round, wait before retry
         if attempt < MAX_RETRIES:
@@ -359,9 +436,15 @@ if __name__ == "__main__":
     if not TELEGRAM_TOKEN:
         print("[BOOT] ERROR: TELEGRAM_TOKEN not set!")
         sys.exit(1)
-    if not OPENROUTER_API_KEY:
-        print("[BOOT] ERROR: OPENROUTER_API_KEY not set!")
+    if not OPENROUTER_API_KEY and not GROQ_API_KEY:
+        print("[BOOT] ERROR: Need at least OPENROUTER_API_KEY or GROQ_API_KEY!")
         sys.exit(1)
+    
+    # Log which APIs are available
+    if GROQ_API_KEY:
+        print("[BOOT] Groq API: READY ✅ (PRIMARY)")
+    if OPENROUTER_API_KEY:
+        print("[BOOT] OpenRouter API: READY ✅ (FALLBACK)")
     
     # Build application
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
