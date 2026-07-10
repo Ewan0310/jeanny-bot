@@ -105,10 +105,18 @@ NSFW_PROMPTS = {
     "body": "chinese girl full body shot, completely naked, front view, smooth bare skin, no clothes, hair in bun, bedroom with dim light, realistic photo, detailed body",
     "tudung": "chinese girl removing white headscarf, long flowing black hair, seductive half smile, unbuttoning top button, bedroom, soft warm lighting, realistic photo",
 }
-
 def generate_nsfw_pic(prompt_text):
     """Generate NSFW image via Pollinations.ai"""
     try:
         seed = random.randint(1, 99999)
         enhanced = f"beautiful 26 year old chinese woman with fair skin, tiktok model look, {prompt_text}, natural lighting, high quality photo"
-        url = f"https://image.pollinations.ai/prompt
+        base = "https://image.pollinations.ai/prompt/"
+        params = f"?width=512&height=768&seed={seed}&nologo=true"
+        url = base + quote(enhanced) + params
+        print(f"[NSFW PIC] Generating: {prompt_text[:50]}...")
+        return url
+    except Exception as e:
+        print(f"[NSFW PIC ERROR] {e}")
+        return None
+
+
