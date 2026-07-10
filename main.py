@@ -470,7 +470,6 @@ async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             caption = random.choice(NSFW_CAPTIONS)
             await update.message.reply_text("Kejap bos... amoi sediakan 😘🔥")
             pic_result = generate_nsfw_pic(prompt)
-            pic_result = generate_image_fal(prompt)
             if pic_result:
                 if pic_result.endswith(".png"):
                     await update.message.reply_photo(photo=open(pic_result, "rb"), caption=caption)
