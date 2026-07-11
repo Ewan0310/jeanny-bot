@@ -90,10 +90,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = update.effective_user.id
     
-    # Skip kalau admin (kau sendiri)
-    if user_id == ADMIN_USER_ID:pass
-        await update.message.reply_text("Aku nampak gambar tu tapi aku tak reply owner la 😜")
-        return
+    # Skip kalau admin (kau sendiriret
+
+
     
     try:
         # Download gambar dari Telegram
