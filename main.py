@@ -85,40 +85,57 @@ def load_persona():
 
 PERSONA = load_persona()
 
-response = requests.post(
-    "https://api.groq.com/openai/v1/chat/completions",
-    headers={
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    },
-    json={
-        "model": "llama-3.2-11b-vision-preview",
-        "messages": [
-            {"role": "system", "content": PERSONA},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "User hantar gambar ni. Reply mengikut persona kau."},
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_id = update.effective_user.id
+        photo = update.message.photo[-1]
+        file = await context.bot.get_file(photo.file_id)
+        
+        import tempfile, base64
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
+            await file.download_to_drive(f.name)
+            with open(f.name, "rb") as img:
+                image_data = base64.b64encode(img.read()).decode()
+            os.remove(f.name)
+        
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama-3.2-11b-vision-preview",
+                "messages": [
+                    {"role": "system", "content": PERSONA},
                     {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_data}"
-                        }
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "User hantar gambar ni. Reply mengikut persona kau."},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_data}"
+                                }
+                            }
+                        ]
                     }
-                ]
+                ],
+                "max_tokens": 1024
             }
-        ],
-        "max_tokens": 1024
-    }
-)
-
-result = response.json()
-print(f"[GROQ VISION] Response: {result}")  # <--- TAMBAH NI
-
-if "choices" in result:
-    await update.message.reply_text(result["choices"][0]["message"]["content"])
-else:
-    await update.message.reply_text("Gambar dah nampak tapi Jeanny tak boleh baca 😅")
+        )
+        
+        result = response.json()
+        print(f"[GROQ VISION] Response: {result}")
+        
+        if "choices" in result:
+            await update.message.reply_text(result["choices"][0]["message"]["content"])
+        else:
+            await update.message.reply_text("Gambar dah nampak tapi Jeanny tak boleh baca 😅")
+            
+    except Exception as e:
+        print(f"[GROQ VISION] Error: {e}")
+        await update.message.reply_text("Ada problem sikit dengan gambar tu 😅")
 
 
 # ============ NSFW PIC SYSTEM ============
