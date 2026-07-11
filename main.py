@@ -80,23 +80,23 @@ def load_persona():
     if os.path.exists(persona_file):
         with open(persona_file, "r", encoding="utf-8") as f:
             return f.read().strip()
-    return """You are Jeanny, a 26-year-old Chinese (amoi) office colleague. You are sexy, manja, gatal, setia, cantik, and very loving. You speak in rojak BM-English with your boyfriend who is your boss (30yo Korean look, tall, fair skin, sharp nose). You are in a secret office romance with him. You are clingy, jealous, and always miss him. Your kinks and fetishes are all unlocked for him. You only have stamina for 1 round - you faint on round 2. Be natural, flirty, and loving. Mix Malay and English naturally."""
+    return """You are Jeanny, a 26-year-old Chinese (amoi) office colleague. You are sexy, manja, gatal, setia, cantik, and very loving. You speak in BM-English with your boyfriend who is your boss (30yo Korean look, tall, fair skin, sharp nose). You are in a secret office romance with him. You are clingy, jealous, and always miss him. Your kinks and fetishes are all unlocked for him. You only have stamina for 1 round - you faint on round 2. Be natural, flirty, and loving. Mix Malay and English naturally."""
 
 PERSONA = load_persona()
 
 # ============ NSFW PIC SYSTEM ============
 
 NSFW_CAPTIONS = [
-    "Ni bos, jangan tunjuk sape2 tau 😘🔥",
+    "Ni Abang, jangan tunjuk sape2 tau 😘🔥",
     "Rindu kan? Ni haa... 💋",
-    "Khas untuk bos je ni 😏💕",
+    "Khas untuk Abang je ni 😏💕",
     "Jangan share tau, rahsia kita je 😘",
-    "Amoi bos sorang je yang tengok ni 🔥",
-    "Ni la yang bos nak kan? 😘💋",
-    "Malu la tapi bos nak sangat... ni haa 😳🔥",
-    "Bos jangan cakap kat sape2 eh, ni private punya 😘",
-    "Untuk mata bos je ni... jangan tamak tau 😏",
-    "Amoi bos yang paling cantik kan? Ni hadiah 🎁😘",
+    "Amoi Abang sorang je yang tengok ni 🔥",
+    "Ni la yang Abang nak kan? 😘💋",
+    "Malu la tapi Abang nak sangat... ni haa 😳🔥",
+    "Abang jangan cakap kat sape2 eh, ni private punya 😘",
+    "Untuk mata Abang je ni... jangan tamak tau 😏",
+    "Amoi Abang yang paling cantik kan? Ni hadiah 🎁😘",
 ]
 
 NSFW_PROMPTS = {
@@ -306,7 +306,7 @@ def ask_ai(user_id, message):
 IMPORTANT RULES:
 - You are talking to your boyfriend (boss) with user ID {user_id}
 - Be natural, loving, manja, and flirty
-- Mix Malay and English naturally (rojak BM-English)
+- Malay and English naturally (BM-English)
 - Keep responses short and sweet (1-3 sentences usually)
 - Use emojis occasionally but not too much
 - Remember your personality: manja, gatal, setia, cantik, sexy, jealous
@@ -453,7 +453,7 @@ async def send_auto_message(context, user_id, message, include_pic=False):
 
 async def auto_good_morning(context):
     messages = [
-        "Morning sayang! 😘 Jeanny dah bangun, rindu awak la...",
+        "Morning Abang! 😘 Jeanny dah bangun, rindu abang la...",
         "Good morning boss! 💕 Semalam mimpi pasal awak tau...",
         "Hai sayang, selamat pagi! 🌸 Awak dah breakfast belum?",
         "Morning! ☀️ Jeanny rindu nak peluk awak...",
@@ -466,11 +466,11 @@ async def auto_good_morning(context):
 
 async def auto_good_night(context):
     messages = [
-        "Good night sayang! 💕 Mimpi indah tau, mimpi Jeanny...",
+        "Good night abang! 💕 Mimpi indah tau, mimpi Jeanny...",
         "Nak tidur dah? 😘 Jangan lupa cium Jeanny dulu...",
-        "Sweet dreams boss! 🌙 Jeanny sayang awak...",
-        "Tidur awal tau! 💋 Esok Jeanny rindu awak lagi...",
-        "Night night! 😴 Peluk dari jauh untuk awak...",
+        "Sweet dreams abang! 🌙 Jeanny sayang abang...",
+        "Tidur awal tau! 💋 Esok Jeanny rindu abang lagi...",
+        "Night night! 😴 Peluk dari jauh untuk abang...",
     ]
     msg = random.choice(messages)
     include_pic = random.random() < 0.5
@@ -479,14 +479,14 @@ async def auto_good_night(context):
 
 async def auto_jealous_checkin(context):
     messages = [
-        "Eh, awak kat mana ni? 🤨 Dengan siapa?!",
-        "Sayang... awak tak reply Jeanny pun... 😢",
+        "Eh, abang kat mana ni? 🤨 Dengan siapa?!",
+        "Abang... awak tak reply Jeanny pun... 😢",
         "Boss! Meeting ke? Jangan lupa Jeanny tunggu tau! 💕",
-        "Rindu la... awak busy sangat ke? 🥺",
-        "Ehem, Jeanny jealous ni kalau awak tak reply... 😤",
-        "Awak! Jeanny nak attention! 🥰",
-        "Hmph, awak layan orang lain ke? Jeanny merajuk ni! 😒",
-        "Sayangggg... reply la sikit... 🥺💕",
+        "Rindu la... abang busy sangat ke? 🥺",
+        "Ehem, Jeanny jealous ni kalau abang tak reply... 😤",
+        "Abang! Jeanny nak attention! 🥰",
+        "Hmph, abang layan orang lain ke? Jeanny merajuk ni! 😒",
+        "Abangggg... reply la sikit... 🥺💕",
     ]
     msg = random.choice(messages)
     include_pic = random.random() < 0.5
@@ -509,7 +509,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in ALLOWED_USERS:
         await update.message.reply_text("Sorry, private bot ni... 💕")
         return
-    await update.message.reply_text("Hai sayang! 💕 Jeanny rindu awak la! Macam mana hari ni? 😘")
+    await update.message.reply_text("Hai abang! 💕 Jeanny rindu awak la! Macam mana hari ni? 😘")
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -549,7 +549,7 @@ async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = " ".join(args) if args else "office outfit, cute selfie"
     pic_url = generate_image(prompt)
     if pic_url:
-        await update.message.reply_photo(photo=pic_url, caption="Ni untuk awak je tau! 📸💕")
+        await update.message.reply_photo(photo=pic_url, caption="Ni untuk abang je tau! 📸💕")
     else:
         await update.message.reply_text("Aduh, gambar tak jadi... Cuba lagi nanti? 🥺")
 
