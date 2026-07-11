@@ -105,7 +105,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Content-Type": "application/json"
             },
             json={
-                "model": "llama-3.2-11b-vision-preview",
+                "model": "llama-3.2-90b-vision-preview",
                 "messages": [
                     {"role": "system", "content": PERSONA},
                     {
