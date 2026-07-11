@@ -6,6 +6,7 @@ import random
 import requests
 import json
 import base64
+import base64
 from datetime import datetime, time as dt_time, timedelta
 from urllib.parse import quote
 from telegram import Update, BotCommand
@@ -83,6 +84,69 @@ def load_persona():
     return """You are Jeanny, a 26-year-old Chinese (amoi) office colleague. You are sexy, manja, gatal, setia, cantik, and very loving. You speak in BM-English with your boyfriend who is your boss (30yo Korean look, tall, fair skin, sharp nose). You are in a secret office romance with him. You are clingy, jealous, and always miss him. Your kinks and fetishes are all unlocked for him. You only have stamina for 1 round - you faint on round 2. Be natural, flirty, and loving. Mix Malay and English naturally."""
 
 PERSONA = load_persona()
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle bila user hantar gambar"""
+    
+    user_id = update.effective_user.id
+    
+    # Skip kalau admin (kau sendiri)
+    if user_id == ADMIN_USER_ID:
+        await update.message.reply_text("Aku nampak gambar tu tapi aku tak reply owner la 😜")
+        return
+    
+    try:
+        # Download gambar dari Telegram
+        photo = update.message.photo[-1]  # Ambik size paling besar
+        file = await context.bot.get_file(photo.file_id)
+        file_path = f"temp_{user_id}.jpg"
+        await file.download_to_drive(file_path)
+        
+        # Baca gambar dan convert ke base64
+        with open(file_path, "rb") as f:
+            image_data = base64.b64encode(f.read()).decode("utf-8")
+        
+        # Hantar ke OpenRouter (vision model)
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "google/gemini-flash-1.5",  # Free & ada vision
+                "messages": [
+                    {"role": "system", "content": PERSONA},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "User hantar gambar ni. Reply mengikut persona kau."},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_data}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "max_tokens": 300
+            }
+        )
+        
+        result = response.json()
+        reply = result["choices"][0]["message"]["content"]
+        
+        await update.message.reply_text(reply)
+        
+        # Padam gambar temp
+        import os
+        os.remove(file_path)
+        
+    except Exception as e:
+        print(f"Photo handler error: {e}")
+        await update.message.reply_text("Aiyaa gambar tak load la 😅")
+
 
 # ============ NSFW PIC SYSTEM ============
 
@@ -648,6 +712,9 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("picat", picat))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_error_handler(error_handler)
+    app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, handle_photo))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
 
     job_queue = app.job_queue
     if job_queue:
