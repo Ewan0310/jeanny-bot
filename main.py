@@ -304,7 +304,7 @@ def ask_ai(user_id, message):
     system_prompt = f"""{PERSONA}
 
 IMPORTANT RULES:
-- You are talking to your boyfriend (boss) with user ID {user_id}
+- You are talking to your boyfriend (abang) with user ID {user_id}
 - Be natural, loving, manja, and flirty
 - Malay and English naturally (BM-English)
 - Keep responses short and sweet (1-3 sentences usually)
@@ -509,7 +509,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in ALLOWED_USERS:
         await update.message.reply_text("Sorry, private bot ni... 💕")
         return
-    await update.message.reply_text("Hai abang! 💕 Jeanny rindu awak la! Macam mana hari ni? 😘")
+    await update.message.reply_text("Hai abang! 💕 Jeanny rindu abang la! Macam mana hari ni? 😘")
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
