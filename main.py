@@ -88,54 +88,15 @@ PERSONA = load_persona()
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
-        photo = update.message.photo[-1]
-        file = await context.bot.get_file(photo.file_id)
         
-        import tempfile, base64
-        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
-            await file.download_to_drive(f.name)
-            with open(f.name, "rb") as img:
-                image_data = base64.b64encode(img.read()).decode()
-            os.remove(f.name)
+        # Text-only fallback - ask user to describe the image
+        reply = "Ehh nampak gambar tapi Jeanny tak boleh tengok gambar la 😅 Boleh describe tak gambar tu apa? Atau just cerita je apa dalam tu~ 💕"
         
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "google/gemini-pro-vision",
-                "messages": [
-                    {"role": "system", "content": PERSONA},
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "User hantar gambar ni. Reply mengikut persona kau."},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{image_data}"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                "max_tokens": 1024
-            }
-        )
+        await update.message.reply_text(reply)
         
-        result = response.json()
-        print(f"[VISION] Response: {result}")
-        
-        if "choices" in result:
-            await update.message.reply_text(result["choices"][0]["message"]["content"])
-        else:
-            await update.message.reply_text("Gambar dah nampak tapi Jeanny tak boleh baca 😅")
-            
     except Exception as e:
-        print(f"[VISION] Error: {e}")
-        await update.message.reply_text("Ada problem sikit dengan gambar tu 😅")
+        print(f"[PHOTO] Error: {e}")
+        await update.message.reply_text("Ada problem sikit 😅 Cuba lagi nanti!")
 
 
 # ============ NSFW PIC SYSTEM ============
