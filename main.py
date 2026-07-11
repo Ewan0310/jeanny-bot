@@ -105,7 +105,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Content-Type": "application/json"
             },
             json={
-                "model": "google/gemini-1.5-flash",
+                "model": "google/gemini-pro-vision",
                 "messages": [
                     {"role": "system", "content": PERSONA},
                     {
