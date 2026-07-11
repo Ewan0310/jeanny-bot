@@ -86,30 +86,26 @@ def load_persona():
 PERSONA = load_persona()
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle bila user hantar gambar"""
-    
-    user_id = update.effective_user.id
-    
     try:
-        # Download gambar dari Telegram
+        user_id = update.effective_user.id
         photo = update.message.photo[-1]
         file = await context.bot.get_file(photo.file_id)
-        file_path = f"temp_{user_id}.jpg"
-        await file.download_to_drive(file_path)
         
-        # Baca gambar dan convert ke base64
-        with open(file_path, "rb") as f:
-            image_data = base64.b64encode(f.read()).decode("utf-8")
+        import tempfile, base64
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
+            await file.download_to_drive(f.name)
+            with open(f.name, "rb") as img:
+                image_data = base64.b64encode(img.read()).decode()
+            os.remove(f.name)
         
-        # Hantar ke OpenRouter (vision model)
         response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
+            "https://api.groq.com/openai/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type": "application/json"
             },
             json={
-                "model": "google/gemini-2.0-flash-exp:free",
+                "model": "llama-3.2-11b-vision-preview",
                 "messages": [
                     {"role": "system", "content": PERSONA},
                     {
@@ -125,33 +121,19 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         ]
                     }
                 ],
-                "max_tokens": 300
+                "max_tokens": 1024
             }
         )
         
         result = response.json()
-        
-        # Debug
-        print(f"OpenRouter response: {result}")
-        
         if "choices" in result:
-            reply = result["choices"][0]["message"]["content"]
-        elif "error" in result:
-            reply = f"API error: {result['error'].get('message', 'Unknown')}"
-            print(f"API Error: {result['error']}")
+            await update.message.reply_text(result["choices"][0]["message"]["content"])
         else:
-            reply = "Hmm gambar ni aku tak dapat process 😅"
-            print(f"Unexpected response: {result}")
-        
-        # Hapus file sementara
-        import os
-        os.remove(file_path)
-        
-        await update.message.reply_text(reply)
-        
+            await update.message.reply_text("Gambar dah nampak tapi Jeanny tak boleh baca 😅")
+            
     except Exception as e:
         print(f"Photo handler error: {e}")
-        await update.message.reply_text("Aiyaa gambar ni ada problem 😅 Cuba hantar balik!")
+        await update.message.reply_text("Ada problem sikit dengan gambar tu 😅")
 
 
 # ============ NSFW PIC SYSTEM ============
