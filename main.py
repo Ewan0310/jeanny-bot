@@ -90,13 +90,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = update.effective_user.id
     
-    # Skip kalau admin (kau sendiriret
-
-
-    
     try:
         # Download gambar dari Telegram
-        photo = update.message.photo[-1]  # Ambik size paling besar
+        photo = update.message.photo[-1]
         file = await context.bot.get_file(photo.file_id)
         file_path = f"temp_{user_id}.jpg"
         await file.download_to_drive(file_path)
@@ -113,7 +109,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Content-Type": "application/json"
             },
             json={
-                "model": "google/gemini-flash-1.5-flash",  # Free & ada vision
+                "model": "google/gemini-1.5-flash",
                 "messages": [
                     {"role": "system", "content": PERSONA},
                     {
@@ -133,9 +129,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         )
         
-                result = response.json()
+        result = response.json()
         
-        # Debug - tengok response
+        # Debug
         print(f"OpenRouter response: {result}")
         
         if "choices" in result:
@@ -147,8 +143,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply = "Hmm gambar ni aku tak dapat process 😅"
             print(f"Unexpected response: {result}")
         
+        # Hapus file sementara
+        import os
+        os.remove(file_path)
+        
         await update.message.reply_text(reply)
-
+        
+    except Exception as e:
+        print(f"Photo handler error: {e}")
+        await update.message.reply_text("Aiyaa gambar ni ada problem 😅 Cuba hantar balik!")
 
 
 # ============ NSFW PIC SYSTEM ============
