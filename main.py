@@ -99,13 +99,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(f.name)
         
         response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type": "application/json"
             },
             json={
-                "model": "llama-3.2-90b-vision-preview",
+                "model": "google/gemini-2.0-flash-exp:free",
                 "messages": [
                     {"role": "system", "content": PERSONA},
                     {
@@ -126,7 +126,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         result = response.json()
-        print(f"[GROQ VISION] Response: {result}")
+        print(f"[VISION] Response: {result}")
         
         if "choices" in result:
             await update.message.reply_text(result["choices"][0]["message"]["content"])
@@ -134,7 +134,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Gambar dah nampak tapi Jeanny tak boleh baca 😅")
             
     except Exception as e:
-        print(f"[GROQ VISION] Error: {e}")
+        print(f"[VISION] Error: {e}")
         await update.message.reply_text("Ada problem sikit dengan gambar tu 😅")
 
 
