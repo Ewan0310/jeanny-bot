@@ -133,18 +133,22 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
         )
         
-        result = response.json()
-        reply = result["choices"][0]["message"]["content"]
+                result = response.json()
+        
+        # Debug - tengok response
+        print(f"OpenRouter response: {result}")
+        
+        if "choices" in result:
+            reply = result["choices"][0]["message"]["content"]
+        elif "error" in result:
+            reply = f"API error: {result['error'].get('message', 'Unknown')}"
+            print(f"API Error: {result['error']}")
+        else:
+            reply = "Hmm gambar ni aku tak dapat process 😅"
+            print(f"Unexpected response: {result}")
         
         await update.message.reply_text(reply)
-        
-        # Padam gambar temp
-        import os
-        os.remove(file_path)
-        
-    except Exception as e:
-        print(f"Photo handler error: {e}")
-        await update.message.reply_text("Aiyaa gambar tak load la 😅")
+
 
 
 # ============ NSFW PIC SYSTEM ============
