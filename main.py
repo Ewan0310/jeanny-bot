@@ -6,7 +6,6 @@ import random
 import requests
 import json
 import base64
-import base64
 from datetime import datetime, time as dt_time, timedelta
 from urllib.parse import quote
 from telegram import Update, BotCommand
@@ -85,19 +84,6 @@ def load_persona():
 
 PERSONA = load_persona()
 
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        user_id = update.effective_user.id
-        
-        # Text-only fallback - ask user to describe the image
-        reply = "Ehh nampak gambar tapi Jeanny tak boleh tengok gambar la 😅 Boleh describe tak gambar tu apa? Atau just cerita je apa dalam tu~ 💕"
-        
-        await update.message.reply_text(reply)
-        
-    except Exception as e:
-        print(f"[PHOTO] Error: {e}")
-        await update.message.reply_text("Ada problem sikit 😅 Cuba lagi nanti!")
-
 
 # ============ NSFW PIC SYSTEM ============
 
@@ -155,8 +141,6 @@ def generate_image_fal(prompt_text):
         
         if response.status_code == 200:
             data = response.json()
-            
-            # Check for images array
             if "images" in data and len(data["images"]) > 0:
                 image_url = data["images"][0].get("url")
                 if image_url:
@@ -167,8 +151,6 @@ def generate_image_fal(prompt_text):
                             f.write(img_response.content)
                         print(f"[FAL] Success! Saved to {temp_path}")
                         return temp_path
-            
-            # Check for single image key
             elif "image" in data:
                 image_url = data["image"].get("url")
                 if image_url:
@@ -179,17 +161,14 @@ def generate_image_fal(prompt_text):
                             f.write(img_response.content)
                         print(f"[FAL] Success! Saved to {temp_path}")
                         return temp_path
-            
-            print(f"[FAL] Unexpected response format: {json.dumps(data)[:300]}")
+            print(f"[FAL] Unexpected response: {json.dumps(data)[:300]}")
         else:
             print(f"[FAL] Error {response.status_code}: {response.text[:300]}")
-            
     except requests.exceptions.Timeout:
         print("[FAL] Request timeout")
     except Exception as e:
         print(f"[FAL] Error: {e}")
     
-    # Fallback to Together.ai
     print("[FAL] Falling back to Together.ai...")
     return generate_nsfw_pic(prompt_text)
 
@@ -240,7 +219,6 @@ def generate_nsfw_pic(prompt_text):
                 else:
                     print(f"[NSFW PIC] Error {response.status_code}: {response.text[:200]}")
                     continue
-
             except requests.exceptions.Timeout:
                 print(f"[NSFW PIC] Timeout for {model}")
                 continue
@@ -252,7 +230,6 @@ def generate_nsfw_pic(prompt_text):
         seed = random.randint(1, 99999)
         fallback_url = f"https://image.pollinations.ai/prompt/{quote(enhanced)}?width=512&height=768&seed={seed}&nologo=true"
         return fallback_url
-
     except Exception as e:
         print(f"[NSFW PIC ERROR] {e}")
         return None
@@ -336,7 +313,6 @@ IMPORTANT RULES:
     messages.extend(memory["history"])
 
     for attempt in range(1, MAX_RETRIES + 1):
-
         if GROQ_API_KEY:
             for model in GROQ_MODELS:
                 try:
@@ -546,7 +522,6 @@ async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE):
             prompt = NSFW_PROMPTS[keyword]
             caption = random.choice(NSFW_CAPTIONS)
             await update.message.reply_text("Kejap bos... amoi sediakan 😘🔥")
-            # USE FAL.AI FIRST (UNCENSORED)
             if FAL_API_KEY:
                 pic_result = generate_image_fal(prompt)
             else:
@@ -579,6 +554,91 @@ async def picat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Aduh, gambar tak jadi... Cuba lagi nanti? 🥺")
 
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle photos using OpenRouter vision API"""
+    try:
+        user_id = update.effective_user.id
+        if user_id not in ALLOWED_USERS:
+            await update.message.reply_text("Sorry, private bot ni... 💕")
+            return
+
+        await update.message.reply_text("Kejap, Jeanny tengok gambar tu... 👀")
+
+        photo = update.message.photo[-1]
+        file = await context.bot.get_file(photo.file_id)
+        photo_bytes = await file.download_as_bytearray()
+        photo_base64 = base64.b64encode(photo_bytes).decode("utf-8")
+
+        vision_models = [
+            "openai/gpt-4o-mini",
+            "openai/gpt-4o",
+        ]
+
+        system_prompt = PERSONA + "\n\nYou just received a photo from your boyfriend. React naturally as Jeanny would - comment on the photo, be flirty, manja, and natural. Keep it short (1-3 sentences). Mix BM and English."
+
+        for model in vision_models:
+            try:
+                print(f"[VISION] Trying {model}...")
+                response = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://jeanny-bot.onrender.com",
+                        "X-Title": "Jeanny Bot",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": "Ni gambar yang abang hantar. Comment la!"},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:image/jpeg;base64,{photo_base64}"
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                        "max_tokens": 300,
+                        "temperature": 0.9,
+                    },
+                    timeout=30,
+                )
+
+                print(f"[VISION] {model} | Status: {response.status_code}")
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if "choices" in data and len(data["choices"]) > 0:
+                        content = data["choices"][0]["message"].get("content")
+                        if content and content.strip():
+                            reply = content.strip()
+                            print(f"[VISION] Success! Reply: {reply[:80]}...")
+                            await update.message.reply_text(reply)
+                            return
+                else:
+                    print(f"[VISION] Error {response.status_code}: {response.text[:200]}")
+                    continue
+
+            except requests.exceptions.Timeout:
+                print(f"[VISION] Timeout for {model}")
+                continue
+            except Exception as e:
+                print(f"[VISION] Error with {model}: {e}")
+                continue
+
+        fallback = "Ehh Jeanny nampak gambar tapi tak boleh analyze la 😅 Boleh describe tak gambar tu apa? 💕"
+        await update.message.reply_text(fallback)
+
+    except Exception as e:
+        print(f"[PHOTO] Error: {e}")
+        await update.message.reply_text("Ada problem sikit 😅 Cuba lagi nanti!")
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in ALLOWED_USERS:
@@ -588,13 +648,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     print(f"[MSG] User {user_id}: {user_message}")
 
-    # Check for NSFW keywords first
     nsfw_keyword = find_nsfw_keyword(user_message)
     if nsfw_keyword:
         prompt = NSFW_PROMPTS[nsfw_keyword]
         caption = random.choice(NSFW_CAPTIONS)
         await update.message.reply_text("Kejap bos... amoi sediakan ni 😘🔥")
-        # USE FAL.AI FIRST (UNCENSORED)
         if FAL_API_KEY:
             pic_result = generate_image_fal(prompt)
         else:
@@ -609,14 +667,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Ahh gambar tak jadi bos 😅 Cuba lagi nanti!")
         return
 
-    # Check if should send regular pic
     should_pic = detect_pic_keyword(user_message)
-
-    # Get AI response
     reply = await asyncio.to_thread(ask_ai, user_id, user_message)
     print(f"[MSG] Jeanny: {reply[:100]}...")
 
-    # Send response with optional pic
     if should_pic:
         pic_url = generate_image(reply[:100])
         if pic_url:
@@ -661,11 +715,9 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("clear", clear))
     app.add_handler(CommandHandler("pic", pic))
     app.add_handler(CommandHandler("picat", picat))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_error_handler(error_handler)
     app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
+    app.add_error_handler(error_handler)
 
     job_queue = app.job_queue
     if job_queue:
