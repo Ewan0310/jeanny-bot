@@ -25,6 +25,23 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 FAL_API_KEY = os.getenv("FAL_API_KEY")
 
+# Section 2.5: CONVERSATION HISTORY
+conversation_histories = {}
+MAX_HISTORY = 20  # Simpan 20 mesej terakhir je
+
+def get_history(chat_id):
+    if chat_id not in conversation_histories:
+        conversation_histories[chat_id] = []
+    return conversation_histories[chat_id]
+
+def add_to_history(chat_id, role, content):
+    history = get_history(chat_id)
+    history.append({"role": role, "content": content})
+    # Trim kalau terlalu panjang
+    if len(history) > MAX_HISTORY:
+        conversation_histories[chat_id] = history[-MAX_HISTORY:]
+
+
 # ============================================
 # 📄 SECTION 3: LOAD PERSONA (persona.txt)
 # ============================================
