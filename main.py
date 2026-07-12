@@ -95,11 +95,22 @@ def get_time_context():
 # 🤖 SECTION 5: AI RESPONSE (TEXT CHAT)
 # ============================================
 # Ni function yang hantar mesej ke Groq/OpenRouter dan dapat balasan
-async def get_ai_response(user_message: str) -> str:
+async def get_ai_response(user_message: str, chat_id: int) -> str:
     time_context = get_time_context()
 
-    # Combine persona + time + user message
-    full_prompt = f"{PERSONA}\n\n{time_context}\n\nUser: {user_message}"
+    # Build messages from history
+    messages = [
+        {"role": "system", "content": PERSONA},
+        {"role": "system", "content": time_context},
+    ]
+
+    # Add conversation history
+    history = get_history(chat_id)
+    for msg in history:
+        messages.append(msg)
+
+    # Add current user message
+    messages.append({"role": "user", "content": user_message})
 
     # Try Groq first (PRIMARY - free & fast)
     if GROQ_API_KEY:
@@ -113,11 +124,7 @@ async def get_ai_response(user_message: str) -> str:
                     },
                     json={
                         "model": "llama-3.3-70b-versatile",
-                        "messages": [
-                            {"role": "system", "content": PERSONA},
-                            {"role": "system", "content": time_context},
-                            {"role": "user", "content": user_message},
-                        ],
+                        "messages": messages,
                         "max_tokens": 1024,
                         "temperature": 0.8,
                     },
@@ -139,11 +146,7 @@ async def get_ai_response(user_message: str) -> str:
                     },
                     json={
                         "model": "openai/gpt-4o-mini",
-                        "messages": [
-                            {"role": "system", "content": PERSONA},
-                            {"role": "system", "content": time_context},
-                            {"role": "user", "content": user_message},
-                        ],
+                        "messages": messages,
                         "max_tokens": 1024,
                         "temperature": 0.8,
                     },
@@ -154,6 +157,7 @@ async def get_ai_response(user_message: str) -> str:
             print(f"[OPENROUTER ERROR] {e}")
 
     return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
+
 
 # ============================================
 # 🖼️ SECTION 6: IMAGE GENERATION (NSFW)
@@ -264,6 +268,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_message = update.message.text
+        chat_id = update.effective_chat.id
 
         # Check kalau user nak gambar
         image_keywords = ["gambar", "foto", "picture", "selfie", "pic", "image", "nampak"]
@@ -276,9 +281,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text("Ehh tak jadi la abang, try lain eh 😅")
             return
 
+        # Add user message to history
+        add_to_history(chat_id, "user", user_message)
+
         # Normal text chat
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        reply = await get_ai_response(user_message)
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+        reply = await get_ai_response(user_message, chat_id)
+
+        # Add bot reply to history
+        add_to_history(chat_id, "assistant", reply)
+
         await update.message.reply_text(reply)
 
     except Exception as e:
