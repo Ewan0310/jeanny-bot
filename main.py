@@ -2,7 +2,6 @@
 # 📦 JEANNY BOT - 4 GROQ + DOLPHIN NSFW
 # ============================================
 import os
-import httpx
 import datetime
 import pytz
 import requests
@@ -15,14 +14,10 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_KEYS = [os.getenv(f"GROQ_API_KEY{i}" if i else "GROQ_API_KEY") for i in ["", "_2", "_3", "_4"]]
 groq_key_index = 0
-TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
-FAL_API_KEY = os.getenv("FAL_API_KEY")
-ADMIN_USER_ID = 92540502
 
 conversation_histories = {}
 MAX_HISTORY = 20
 
-# PERSONA
 PERSONA = """You are Jeanny, 26 tahun sexy Chinese amoi cantik. Abang adalah suami kau.
 
 Selalu sebut diri "Jeanny". Panggil dia "abang". 
@@ -115,45 +110,4 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         chat_id = update.effective_chat.id
 
-        if any(k in text.lower() for k in ["gambar","foto","selfie","pic","image"]):
-            await update.message.reply_text("Kejap abang, Jeanny generate gambar... 📸")
-            url = await generate_image(text)
-            await update.message.reply_photo(photo=url)
-            return
-
-        add_to_history(chat_id, "user", text)
-        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-        reply = await get_ai_response(text, chat_id)
-        add_to_history(chat_id, "assistant", reply)
-        await update.message.reply_text(reply)
-    except Exception as e:
-        print(f"Error: {e}")
-        await update.message.reply_text("Jeanny pening sikit... try lagi ya 💕")
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hai abang! 💕 Jeanny dah online. Rindu abang gila hari ni 😘")
-
-
-app = Flask(__name__)
-@app.route('/')
-def home():
-    return "Jeanny Bot is alive! 💕"
-
-def run_web():
-    app.run(host='0.0.0.0', port=10000, debug=False)
-
-def main():
-    print("🚀 Starting Jeanny Bot...")
-    Thread(target=run_web, daemon=True).start()
-
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    print("✅ Jeanny Bot is LIVE!")
-    application.run_polling(drop_pending_updates=True)
-
-if __name__ == '__main__':
-    main()
+        if any(k in
