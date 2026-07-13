@@ -26,12 +26,20 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 FAL_API_KEY = os.getenv("FAL_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 ADMIN_USER_ID = 92540502
 
 # Section 2.5: CONVERSATION HISTORY
 conversation_histories = {}
 MAX_HISTORY = 20
+
+# === GEMINI API KEYS (ROTATE) ===
+GEMINI_KEYS = [
+    os.getenv("GEMINI_API_KEY"),
+    os.getenv("GEMINI_API_KEY_2"),
+    os.getenv("GEMINI_API_KEY_3"),
+    os.getenv("GEMINI_API_KEY_4"),
+]
+gemini_key_index = 0
 
 def get_history(chat_id):
     if chat_id not in conversation_histories:
@@ -176,11 +184,15 @@ async def get_ai_response(user_message, user_id):
         except Exception as e:
             print(f"[GROQ ERROR] {e}")
 
-    # ===== FALLBACK 1: Gemini =====
-    if GEMINI_API_KEY:
+        # ===== FALLBACK 1: Gemini (4 KEYS ROTATE) =====
+    for gi in range(len(GEMINI_KEYS)):
+        gkey_idx = (gemini_key_index + gi) % len(GEMINI_KEYS)
+        gkey = GEMINI_KEYS[gkey_idx]
+        if not gkey:
+            continue
         try:
-            print("[GEMINI] Trying Gemini...")
-            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+            print(f"[GEMINI] Trying key {gkey_idx+1}...")
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gkey}"
             gemini_messages = []
             for msg in messages:
                 if msg["role"] == "system":
@@ -199,11 +211,14 @@ async def get_ai_response(user_message, user_id):
             if response.status_code == 200:
                 result = response.json()
                 if 'candidates' in result and len(result['candidates']) > 0:
+                    gemini_key_index = (gkey_idx + 1) % len(GEMINI_KEYS)
+                    print(f"[GEMINI] Success with key {gkey_idx+1} ✅")
                     return result['candidates'][0]['content']['parts'][0]['text']
             else:
-                print(f"[GEMINI ERROR] Status {response.status_code}: {response.text[:200]}")
+                print(f"[GEMINI] Key {gkey_idx+1} error {response.status_code}: {response.text[:100]}")
         except Exception as e:
-            print(f"[GEMINI ERROR] {e}")
+            print(f"[GEMINI] Key {gkey_idx+1} error: {e}")
+            continue
 
     # ===== FALLBACK 2: OpenRouter (4 keys auto-rotate) =====
     if openrouter_keys:
