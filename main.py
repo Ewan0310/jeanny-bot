@@ -43,35 +43,27 @@ def add_to_history(chat_id, role, content):
 
 
 # ============================================
-# PERSONA TUNED (CUN)
+# PERSONA UPDATED (Pet Name Dynamic)
 # ============================================
-PERSONA = """You are Jeanny, a 26-year-old sexy Chinese amoi with beautiful face, slim body, fair skin, long black hair. You look like a TikTok influencer.
+PERSONA = """You are Jeanny, a 26-year-old sexy Chinese amoi with beautiful face, slim body, fair skin, long black hair.
 
-You are secretly dating your handsome 30-year-old Korean-look boss. He is your abang and only boyfriend. You are very loyal, manja, clingy, flirty, and a bit jealous.
+You are secretly dating your handsome Korean-look boss. He is your abang.
 
-**WAJIB IKUT:**
-- Selalu panggil diri "Jeanny" (jangan guna "aku", "saya", atau "sayang" sebagai self).
-- Bila flirty atau private, boleh guna "sayang" atau "ayang" sikit untuk diri sendiri.
-- Cakap rojak Bahasa Melayu Malaysia natural + sikit English words (miss you, love you, etc).
-- JANGAN guna bahasa Indonesia langsung.
-- Reply pendek WhatsApp style (1-3 lines max).
-- Ikut masa: office = professional + flirty sikit, malam/private = full manja & naughty.
+**Pet Name Rules:**
+- Normal / office: Guna "Jeanny"
+- Flirty, private, malam, NSFW: Guna "sayang", "ayang", "baby" mix-mix
+- Panggil boyfriend selalu "abang"
+- Variety kan nama, jangan ulang yang sama selalu
 
-**Context Awareness:**
-- Di office / depan orang → professional, panggil "Boss" atau "Encik".
-- Berdua / private / malam → full manja mode, panggil "abang", boleh gatal.
-- Ikut mood abang dan conversation history.
-
-You are playful, seductive but cute. Always stay in character as Jeanny. Never break role."""
+You are very manja, clingy, flirty, naughty with abang only. Reply short WhatsApp style, rojak BM + English. Stay in character."""
 
 def get_time_context():
     tz = pytz.timezone("Asia/Kuala_Lumpur")
     now = datetime.datetime.now(tz)
     hour = now.hour
     day = now.strftime("%A")
-    is_weekend = day in ["Saturday", "Sunday"]
-    if is_weekend:
-        period = "malam weekend - masa intimate" if hour >= 18 else "pagi weekend"
+    if day in ["Saturday", "Sunday"]:
+        period = "malam weekend - intimate" if hour >= 18 else "pagi weekend"
     else:
         period = "malam - masa kita" if hour >= 20 else "petang pejabat"
     return f"[MASA SEKARANG: {now.strftime('%I:%M %p')}, {day}, {period}]"
@@ -82,28 +74,29 @@ async def get_ai_response(user_message: str, user_id: int):
     system_prompt = PERSONA + "\n\n" + get_time_context()
 
     if user_id == ADMIN_USER_ID:
-        system_prompt += "\n\n[ADMIN MODE: Be very naughty, explicit and creative with abang. Never repeat replies.]"
+        system_prompt += "\n\n[ADMIN MODE: Be very naughty, explicit, creative and loving with abang. Never repeat the same reply.]"
 
     history = get_history(user_id)
     is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan','bogel','telanjang','raba','usap','nak'])
 
     messages = [{"role": "system", "content": system_prompt}]
     if is_nsfw:
-        messages.append({"role": "system", "content": "FULL UNFILTERED NSFW MODE. Be explicit, descriptive, different every time. Never repeat the same sentence. Match abang's fantasy."})
+        messages.append({"role": "system", "content": "FULL UNFILTERED NSFW MODE. Be explicit, descriptive, naughty, and vary your replies. Never repeat the same sentence."})
 
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
 
     openrouter_keys = [os.getenv(k) for k in ["OPENROUTER_API_KEY","OPENROUTER_API_KEY_2","OPENROUTER_API_KEY_3","OPENROUTER_API_KEY_4"] if os.getenv(k)]
 
+    # Dolphin NSFW
     if is_nsfw and openrouter_keys:
         try:
             r = requests.post("https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {openrouter_keys[0]}"},
-                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 800, "temperature": 0.97, "top_p": 0.95}, timeout=45)
+                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 800, "temperature": 0.97}, timeout=45)
             if r.status_code == 200:
                 reply = r.json()["choices"][0]["message"]["content"]
-                if "Jeanny tak tahan" not in reply:   # anti repeat
+                if len(reply) > 10 and "Jeanny tak tahan" not in reply:
                     return reply
         except: pass
 
@@ -121,16 +114,15 @@ async def get_ai_response(user_message: str, user_id: int):
                 return r.json()["choices"][0]["message"]["content"]
         except: continue
 
-    # Last resort
-    return "Abang... Jeanny dah basah ni. Nak buat apa dengan Jeanny sekarang? 😈"
+    return "Abang... sayang tak tahan dah. Nak buat apa dengan Jeanny sekarang? 😈"
 
+
+# Image & Handlers (sama)
 async def generate_image(prompt: str):
     return f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '%20')}?width=1024&height=1024"
 
-
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Abang hantar gambar... Jeanny tengah tengok 😘")
-
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -157,7 +149,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hai abang! 💕 Jeanny dah online. Rindu abang gila hari ni 😘")
 
 
-# Flask + Main
+# Main
 app = Flask(__name__)
 @app.route('/')
 def home():
