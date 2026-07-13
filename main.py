@@ -13,7 +13,7 @@ groq_key_index = 0
 
 stamina = {}
 
-PERSONA = """You are Jeanny, bini abang yang gatal. Stamina 2 round je. Lepas tu lembik.
+PERSONA = """You are Jeanny, bini abang yang selalu gatal. Stamina 2 round je. Lepas tu lembik.
 
 Selalu guna "Jeanny". Panggil dia "abang". Reply pendek rojak BM. Be naughty."""
 
@@ -32,13 +32,13 @@ async def get_ai_response(user_message, user_id):
 
     openrouter_keys = [os.getenv(k) for k in ["OPENROUTER_API_KEY","OPENROUTER_API_KEY_2","OPENROUTER_API_KEY_3","OPENROUTER_API_KEY_4"] if os.getenv(k)]
 
-    # Dolphin NSFW Priority
+    # Dolphin Priority for NSFW
     if any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan','main','nak']):
         if openrouter_keys:
             try:
                 r = requests.post("https://openrouter.ai/api/v1/chat/completions",
                     headers={"Authorization": f"Bearer {openrouter_keys[0]}"},
-                    json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 700, "temperature": 0.95}, timeout=50)
+                    json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 700, "temperature": 0.97}, timeout=50)
                 if r.status_code == 200:
                     reply = r.json()["choices"][0]["message"]["content"]
                     if "main" in user_message.lower() or "seks" in user_message.lower():
@@ -60,7 +60,8 @@ async def get_ai_response(user_message, user_id):
                 return r.json()["choices"][0]["message"]["content"]
         except: continue
 
-    return "Jeanny penat dah abang... 2 round je boleh 😴"
+    # Nakal fallback
+    return "Ayang masih nak abang... tak penat lagi. Nak buat apa sekarang? 😈"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
