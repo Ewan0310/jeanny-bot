@@ -102,7 +102,8 @@ async def get_ai_response(user_message, user_id):
     chat_history = get_history(user_id)
     time_context = get_time_context()
 
-    nsfw_triggers = ['cinta', 'sayang', 'rindu', 'peluk', 'cium', 'manja', 'syg', 'baby', 'love', 'kiss', 'hug', 'romantik', 'stim', 'ghairah', 'seksi', 'cantik', 'comel', 'beautiful', 'hot', 'sexy', 'nak', 'raba', 'usap', 'buka', 'tilam', 'bilik', 'malam', 'sunyi', 'tengok', 'badan', 'lentik', 'montok', 'gedik', 'gatal', 'ranggi', 'bogel', 'telanjang', 'tetek', 'puki', 'kote', 'seks', 'main', 'puas']
+    # ===== NSFW TRIGGERS (FIXED - removed common words like nak, tengok, main, cantik) =====
+    nsfw_triggers = ['cinta', 'sayang', 'rindu', 'peluk', 'cium', 'manja', 'syg', 'baby', 'love', 'kiss', 'hug', 'romantik', 'stim', 'ghairah', 'seksi', 'raba', 'usap', 'buka baju', 'tilam', 'bilik tidur', 'sunyi', 'badan', 'montok', 'bogel', 'telanjang', 'seks', 'puas', 'ranggikan', 'gatalkan']
 
     is_nsfw = any(word in user_message.lower() for word in nsfw_triggers)
 
@@ -129,9 +130,9 @@ async def get_ai_response(user_message, user_id):
     if is_nsfw and openrouter_keys:
         print(f"[NSFW] Flirty message detected, routing to OpenRouter...")
         nsfw_models = [
-            "gryphe/mythomax-l2-13b",
             "meta-llama/llama-3.1-70b-instruct",
-            "nousresearch/hermes-3-llama-3.1-405b"
+            "nousresearch/hermes-3-llama-3.1-405b",
+            "gryphe/mythomax-l2-13b"
         ]
         for key in openrouter_keys:
             for model in nsfw_models:
@@ -140,7 +141,7 @@ async def get_ai_response(user_message, user_id):
                     response = requests.post(
                         "https://openrouter.ai/api/v1/chat/completions",
                         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                        json={"model": model, "messages": messages, "max_tokens": 500, "temperature": 0.9},
+                        json={"model": model, "messages": messages, "max_tokens": 500, "temperature": 0.8},
                         timeout=30
                     )
                     if response.status_code == 200:
