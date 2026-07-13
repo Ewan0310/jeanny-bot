@@ -394,12 +394,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Ni supaya Render tak restart bot ko
 app_web = Flask(__name__)
 
-@app.route('/')
+@app_web.route('/')      # ✅ app_web + () + '/'
 def home():
-    # Clear webhook setiap kali server start
     token = os.getenv('TELEGRAM_TOKEN')
     requests.get(f'https://api.telegram.org/bot{token}/deleteWebhook?drop_pending_updates=true')
     return "Jeanny Bot is alive! 💕"
+
 
 # ============================================
 # ▶️ SECTION 11: MAIN - START BOT
