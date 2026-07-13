@@ -5,6 +5,7 @@ import os
 import httpx
 import datetime
 import pytz
+import json as json_lib
 from flask import Flask
 from threading import Thread
 from telegram import Update
@@ -98,23 +99,33 @@ def get_time_context():
 async def get_ai_response(user_message: str, chat_id: int) -> str:
     time_context = get_time_context()
 
-    # Build messages from history
-    messages = [
-        {"role": "system", "content": PERSONA},
-        {"role": "system", "content": time_context},
-    ]
+    # Build system prompt
+    system_prompt = PERSONA + "\n\n" + time_context
 
-    # Add conversation history
+    # Build conversation history for prompt
     history = get_history(chat_id)
+    history_text = ""
     for msg in history:
-        messages.append(msg)
+        role = msg["role"]
+        content = msg["content"]
+        if role == "user":
+            history_text += f"User: {content}\n"
+        elif role == "assistant":
+            history_text += f"Jeanny: {content}\n"
 
-    # Add current user message
-    messages.append({"role": "user", "content": user_message})
+    full_prompt = f"{system_prompt}\n\nConversation so far:\n{history_text}\nUser: {user_message}\nJeanny:"
 
     # Try Groq first (PRIMARY - free & fast)
     if GROQ_API_KEY:
         try:
+            messages = [
+                {"role": "system", "content": PERSONA},
+                {"role": "system", "content": time_context},
+            ]
+            for msg in history:
+                messages.append(msg)
+            messages.append({"role": "user", "content": user_message})
+
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
@@ -137,16 +148,44 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
         except Exception as e:
             print(f"[GROQ ERROR] {e}")
 
-    # Try OpenRouter (FALLBACK - multiple models)
-    if OPENROUTER_API_KEY:
-        openrouter_models = [
-            "meta-llama/llama-3-8b-instruct:free",
-            "mistralai/mistral-7b-instruct:free",
-            "huggingfaceh4/zephyr-7b-beta:free",
-            "openchat/openchat-7b:free",
-            "gryphe/mythomist-7b:free",
-        ]
+    # Try Gemini (FALLBACK #1 - FREE)
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if gemini_key:
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "contents": [{"parts": [{"text": full_prompt}]}],
+                        "generationConfig": {
+                            "maxOutputTokens": 1024,
+                            "temperature": 0.8,
+                        },
+                    },
+                )
+                data = response.json()
+                if response.status_code != 200:
+                    print(f"[GEMINI ERROR] Status {response.status_code}: {data}")
+                    raise Exception(f"Gemini status {response.status_code}")
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception as e:
+            print(f"[GEMINI ERROR] {e}")
 
+    # Try OpenRouter (FALLBACK #2)
+    if OPENROUTER_API_KEY:
+        messages = [
+            {"role": "system", "content": PERSONA},
+            {"role": "system", "content": time_context},
+        ]
+        for msg in history:
+            messages.append(msg)
+        messages.append({"role": "user", "content": user_message})
+
+        openrouter_models = [
+            "meta-llama/llama-3.1-8b-instruct",
+            "mistralai/mistral-7b-instruct",
+        ]
         for model in openrouter_models:
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
