@@ -41,6 +41,10 @@ GEMINI_KEYS = [
 ]
 gemini_key_index = 0
 
+# Together AI
+TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+
+
 def get_history(chat_id):
     if chat_id not in conversation_histories:
         conversation_histories[chat_id] = []
@@ -221,34 +225,34 @@ async def get_ai_response(user_message, user_id):
             print(f"[GEMINI] Key {gkey_idx+1} error: {e}")
             continue
 
-    # ===== FALLBACK 2: OpenRouter (4 keys auto-rotate) =====
-    if openrouter_keys:
-        fallback_models = [
-            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-            "meta-llama/llama-3.1-70b-instruct",
-            "mistralai/mistral-7b-instruct:free",
-            "meta-llama/llama-3-8b-instruct:free"
-        ]
-        for key in openrouter_keys:
-            for model in fallback_models:
-                try:
-                    print(f"[OPENROUTER] Trying {model}...")
-                    response = requests.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                        json={"model": model, "messages": messages, "max_tokens": 500, "temperature": 0.7},
-                        timeout=30
-                    )
-                    if response.status_code == 200:
-                        result = response.json()
-                        if 'choices' in result and len(result['choices']) > 0:
-                            return result['choices'][0]['message']['content']
-                    else:
-                        print(f"[OPENROUTER] {model} returned {response.status_code}")
-                except Exception as e:
-                    print(f"[OPENROUTER] {model} error: {e}")
+                continue
 
-    return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
+    # ===== FALLBACK 2: Together AI =====
+    if TOGETHER_API_KEY:
+        print("[TOGETHER] Trying Meta-Llama-3.1-8B-Instruct-Turbo...")
+        try:
+            together_resp = requests.post(
+                "https://api.together.xyz/v1/chat/completions",
+                headers={"Authorization": f"Bearer {TOGETHER_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+                    "messages": messages,
+                    "max_tokens": 500,
+                    "temperature": 0.7,
+                },
+                timeout=30,
+            )
+            if together_resp.status_code == 200:
+                result = together_resp.json()
+                if "choices" in result and len(result["choices"]) > 0:
+                    print("[TOGETHER] Success! ✅")
+                    return result["choices"][0]["message"]["content"]
+            else:
+                print(f"[TOGETHER] Error {together_resp.status_code}: {together_resp.text[:200]}")
+        except Exception as e:
+            print(f"[TOGETHER] Exception: {e}")
+
+    # ===== FALLBACK 3: OpenRouter (4 keys auto-rotate) =====
 
 # ============================================
 # 🖼️ SECTION 6: IMAGE GENERATION (NSFW)
