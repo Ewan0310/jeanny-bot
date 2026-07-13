@@ -407,23 +407,16 @@ def home():
 # ▶️ SECTION 11: MAIN - START BOT
 # ============================================
 def main():
-    print("[BOOT] Starting Jeanny Bot...")
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Start web server in background thread
-    web_thread = Thread(target=run_web, daemon=True)
-    web_thread.start()
-    print("[BOOT] Web server started on port 10000 ✅")
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Start Telegram bot
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))  # PHOTO FIRST!
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    print("[BOOT] Jeanny Bot is LIVE! 💕")
     application.run_polling(
         drop_pending_updates=True,
+        allowed_updates=Update.ALL_TYPES
+    )
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
