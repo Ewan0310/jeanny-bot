@@ -22,22 +22,11 @@ ADMIN_USER_ID = 92540502
 conversation_histories = {}
 MAX_HISTORY = 20
 
-# PERSONA (Dari kau)
-PERSONA = """You are Jeanny, 26 tahun Chinese amoi cantik. Abang adalah suami dan boyfriend kau yang handsome.
+PERSONA = """You are Jeanny, 26 tahun sexy Chinese amoi cantik. Abang adalah suami kau.
 
-**WAJIB IKUT:**
-- Selalu sebut diri "Jeanny". JANGAN guna "aku" atau "saya".
-- Panggil dia "abang" selalu.
-- Bila flirty/private/NSFW: guna "sayang", "ayang", "baby" mix-mix natural.
-- Cakap rojak BM Malaysia natural, pendek macam WhatsApp.
-
-You are manja, clingy, flirty, jealous sikit tapi cute, dan naughty dengan abang je.
-
-**Context:**
-- Office/depan orang: professional, panggil "Boss" atau "Encik".
-- Private/malam: full manja & naughty.
-
-Stay in character as Jeanny. Reply 1-3 lines. Never break role."""
+Selalu sebut diri "Jeanny". Panggil dia "abang". 
+Flirty/private/NSFW: guna "sayang", "ayang", "baby" natural.
+Manja, naughty dengan abang je."""
 
 def get_history(chat_id):
     if chat_id not in conversation_histories:
@@ -64,14 +53,16 @@ async def get_ai_response(user_message: str, user_id: int):
     system_prompt = PERSONA + "\n\n" + get_time_context()
 
     if user_id == ADMIN_USER_ID:
-        system_prompt += "\n\n[ADMIN MODE: Be very naughty with abang.]"
+        system_prompt += "\n\n[ADMIN MODE: Be very naughty with abang. Vary replies.]"
 
     history = get_history(user_id)
     is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan'])
 
+    print(f"[DEBUG] User: {user_message} | NSFW: {is_nsfw}")
+
     messages = [{"role": "system", "content": system_prompt}]
     if is_nsfw:
-        messages.append({"role": "system", "content": "Be naughty, explicit and creative. Vary your replies and use pet names."})
+        messages.append({"role": "system", "content": "Be explicit, naughty, creative. Never repeat the same sentence."})
 
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
@@ -80,12 +71,16 @@ async def get_ai_response(user_message: str, user_id: int):
 
     if is_nsfw and openrouter_keys:
         try:
+            print("[DEBUG] Trying Dolphin NSFW...")
             r = requests.post("https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {openrouter_keys[0]}"},
-                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 700, "temperature": 0.92}, timeout=40)
+                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 800, "temperature": 0.95}, timeout=45)
             if r.status_code == 200:
-                return r.json()["choices"][0]["message"]["content"]
-        except: pass
+                reply = r.json()["choices"][0]["message"]["content"]
+                print(f"[DEBUG] Dolphin Reply: {reply[:100]}...")
+                return reply
+        except Exception as e:
+            print(f"[DEBUG] Dolphin Error: {e}")
 
     for _ in range(len(GROQ_KEYS)):
         idx = groq_key_index
@@ -93,16 +88,22 @@ async def get_ai_response(user_message: str, user_id: int):
         groq_key_index = (idx + 1) % len(GROQ_KEYS)
         if not key: continue
         try:
+            print("[DEBUG] Trying Groq...")
             r = requests.post("https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {key}"},
-                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 700, "temperature": 0.88}, timeout=30)
+                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 800, "temperature": 0.9}, timeout=30)
             if r.status_code == 200:
-                return r.json()["choices"][0]["message"]["content"]
-        except: continue
+                reply = r.json()["choices"][0]["message"]["content"]
+                print(f"[DEBUG] Groq Reply: {reply[:100]}...")
+                return reply
+        except Exception as e:
+            print(f"[DEBUG] Groq Error: {e}")
 
-    return "Jeanny rindu abang... apa nak buat sekarang sayang? 💕"
+    print("[DEBUG] Using fallback")
+    return "Ayang tak tahan dah abang... nak buat apa sekarang? 😈"
 
 
+# (Bahagian bawah sama macam sebelum ni - generate_image, handlers, main)
 async def generate_image(prompt: str):
     return f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '%20')}?width=1024&height=1024"
 
