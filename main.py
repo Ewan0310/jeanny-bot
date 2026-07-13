@@ -112,7 +112,7 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
     # Add current user message
     messages.append({"role": "user", "content": user_message})
 
-    # Try Groq first (PRIMARY - free &     # Try Groq first (PRIMARY - free & fast)
+    # Try Groq first (PRIMARY - free & fast)
     if GROQ_API_KEY:
         try:
             async with httpx.AsyncClient(timeout=30) as client:
@@ -137,7 +137,34 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
         except Exception as e:
             print(f"[GROQ ERROR] {e}")
 
+    # Try OpenRouter (FALLBACK)
+    if OPENROUTER_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "meta-llama/llama-3.3-70b-instruct:free",
+                        "messages": messages,
+                        "max_tokens": 1024,
+                        "temperature": 0.8,
+                    },
+                )
+                data = response.json()
+                if response.status_code != 200:
+                    print(f"[OPENROUTER ERROR] Status {response.status_code}: {data}")
+                    raise Exception(f"OpenRouter status {response.status_code}")
+                return data["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"[OPENROUTER ERROR] {e}")
+
+    # Both failed
     return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
+
 
 
 # ============================================
