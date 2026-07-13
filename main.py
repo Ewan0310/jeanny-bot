@@ -5,6 +5,7 @@ import os
 import httpx
 import datetime
 import pytz
+import requests
 import json as json_lib
 from flask import Flask
 from threading import Thread
@@ -395,12 +396,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Ni supaya Render tak restart bot ko
 app_web = Flask(__name__)
 
-@app_web.route("/")
+@app.route('/')
 def home():
+    # Clear webhook setiap kali server start
+    token = os.getenv('TELEGRAM_TOKEN')
+    requests.get(f'https://api.telegram.org/bot{token}/deleteWebhook?drop_pending_updates=true')
     return "Jeanny Bot is alive! 💕"
-
-def run_web():
-    app_web.run(host="0.0.0.0", port=10000)
 
 # ============================================
 # ▶️ SECTION 11: MAIN - START BOT
@@ -421,7 +422,8 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("[BOOT] Jeanny Bot is LIVE! 💕")
-    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    application.run_polling(
+        drop_pending_updates=True,
 
 if __name__ == "__main__":
     main()
