@@ -97,9 +97,8 @@ def get_time_context():
 # SECTION 5: AI RESPONSE WITH NSFW ROUTING
 # ============================================================
 
-def get_ai_response(user_id, user_message):
-    persona = get_persona()
-    system_prompt = persona
+async def get_ai_response(user_message, user_id):
+    system_prompt = PERSONA
     
     if user_id == ADMIN_USER_ID:
         system_prompt += "\n\n[ADMIN MODE: This is your owner, abang. Show extra care.]"
@@ -242,7 +241,6 @@ def get_ai_response(user_id, user_message):
                     print(f"[OPENROUTER] {model} error: {e}")
     
     return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
-
 
 # ============================================
 # 🖼️ SECTION 6: IMAGE GENERATION (NSFW)
