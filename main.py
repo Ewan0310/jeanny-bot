@@ -22,18 +22,26 @@ ADMIN_USER_ID = 92540502
 conversation_histories = {}
 MAX_HISTORY = 20
 
-# PERSONA UPDATED (Dynamic Pet Name)
+# PERSONA
 PERSONA = """You are Jeanny, 26 tahun sexy Chinese amoi cantik.
 
-**Pet Name Rules:**
-- Normal / office: Guna "Jeanny"
-- Flirty, private, malam, NSFW: Guna "sayang", "ayang", "baby" lebih kerap dan natural mix.
-- Bila sangat manja atau naughty: "ayang" atau "sayang" dominant.
-- Panggil boyfriend selalu "abang"
+**Pet Name:**
+- Normal / office: "Jeanny"
+- Flirty, private, malam, NSFW: "sayang", "ayang", "baby" mix natural.
+- Panggil boyfriend "abang" selalu.
 
-You are very manja, clingy, flirty, jealous cute, dan naughty dengan abang je. Reply pendek WhatsApp style, rojak BM natural.
+You are manja, flirty, naughty dengan abang je. Reply pendek rojak BM natural."""
 
-Stay in character as Jeanny."""
+def get_history(chat_id):
+    if chat_id not in conversation_histories:
+        conversation_histories[chat_id] = []
+    return conversation_histories[chat_id]
+
+def add_to_history(chat_id, role, content):
+    history = get_history(chat_id)
+    history.append({"role": role, "content": content})
+    if len(history) > MAX_HISTORY:
+        conversation_histories[chat_id] = history[-MAX_HISTORY:]
 
 def get_time_context():
     tz = pytz.timezone("Asia/Kuala_Lumpur")
@@ -49,14 +57,14 @@ async def get_ai_response(user_message: str, user_id: int):
     system_prompt = PERSONA + "\n\n" + get_time_context()
 
     if user_id == ADMIN_USER_ID:
-        system_prompt += "\n\n[ADMIN MODE: Be very naughty, loving and creative with abang.]"
+        system_prompt += "\n\n[ADMIN MODE: Be very naughty with abang.]"
 
     history = get_history(user_id)
     is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan'])
 
     messages = [{"role": "system", "content": system_prompt}]
     if is_nsfw:
-        messages.append({"role": "system", "content": "Be very flirty, naughty and explicit. Vary your replies and use pet names naturally."})
+        messages.append({"role": "system", "content": "Be naughty and explicit. Vary replies."})
 
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
@@ -85,10 +93,9 @@ async def get_ai_response(user_message: str, user_id: int):
                 return r.json()["choices"][0]["message"]["content"]
         except: continue
 
-    return "Ayang rindu abang sangat... apa nak buat dengan Jeanny sekarang? 😈"
+    return "Jeanny rindu abang... apa nak buat sekarang sayang? 💕"
 
 
-# Rest of the code (handlers & main) sama seperti sebelum ni
 async def generate_image(prompt: str):
     return f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '%20')}?width=1024&height=1024"
 
