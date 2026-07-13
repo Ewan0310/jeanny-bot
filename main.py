@@ -115,9 +115,8 @@ async def get_ai_response(user_message, user_id):
     chat_history = get_history(user_id)
     time_context = get_time_context()
 
-    # ===== NSFW TRIGGERS (FIXED - removed common words like nak, tengok, main, cantik) =====
+    # NSFW Triggers
     nsfw_triggers = ['cinta', 'sayang', 'rindu', 'peluk', 'cium', 'manja', 'syg', 'baby', 'love', 'kiss', 'hug', 'romantik', 'stim', 'ghairah', 'seksi', 'raba', 'usap', 'buka baju', 'tilam', 'bilik tidur', 'sunyi', 'badan', 'montok', 'bogel', 'telanjang', 'seks', 'puas', 'ranggikan', 'gatalkan']
-
     is_nsfw = any(word in user_message.lower() for word in nsfw_triggers)
 
     messages = [{"role": "system", "content": f"{system_prompt}\n\n[TIME: {time_context}]"}]
@@ -130,7 +129,7 @@ async def get_ai_response(user_message, user_id):
 
     messages.append({"role": "user", "content": user_message})
 
-    # ===== 4 OPENROUTER KEYS (auto-rotate) =====
+    # OpenRouter Keys
     openrouter_keys = [
         os.getenv("OPENROUTER_API_KEY"),
         os.getenv("OPENROUTER_API_KEY_2"),
@@ -139,9 +138,9 @@ async def get_ai_response(user_message, user_id):
     ]
     openrouter_keys = [k for k in openrouter_keys if k]
 
-    # ===== NSFW ROUTING =====
+    # NSFW Routing
     if is_nsfw and openrouter_keys:
-        print(f"[NSFW] Flirty message detected, routing to OpenRouter...")
+        print(f"[NSFW] Flirty message detected...")
         nsfw_models = [
             "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
             "meta-llama/llama-3.1-70b-instruct",
@@ -151,7 +150,6 @@ async def get_ai_response(user_message, user_id):
         for key in openrouter_keys:
             for model in nsfw_models:
                 try:
-                    print(f"[NSFW] Trying {model}...")
                     response = requests.post(
                         "https://openrouter.ai/api/v1/chat/completions",
                         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
@@ -161,19 +159,13 @@ async def get_ai_response(user_message, user_id):
                     if response.status_code == 200:
                         result = response.json()
                         if 'choices' in result and len(result['choices']) > 0:
-                            reply = result['choices'][0]['message']['content']
-                            print(f"[NSFW] Success with {model}")
-                            return reply
-                    else:
-                        print(f"[NSFW] {model} returned {response.status_code}")
+                            return result['choices'][0]['message']['content']
                 except Exception as e:
-                    print(f"[NSFW] {model} error: {e}")
-        print("[NSFW] All NSFW models failed, falling back to normal...")
+                    print(f"[NSFW {model}] {e}")
 
-    # ===== NORMAL: Groq =====
+    # Groq
     if GROQ_API_KEY:
         try:
-            print("[GROQ] Trying Groq...")
             response = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
@@ -184,19 +176,16 @@ async def get_ai_response(user_message, user_id):
                 result = response.json()
                 if 'choices' in result and len(result['choices']) > 0:
                     return result['choices'][0]['message']['content']
-            else:
-                print(f"[GROQ ERROR] Status {response.status_code}: {response.text[:200]}")
         except Exception as e:
             print(f"[GROQ ERROR] {e}")
 
-        # ===== FALLBACK 1: Gemini (4 KEYS ROTATE) =====
+    # Gemini
     for gi in range(len(GEMINI_KEYS)):
         gkey_idx = (gemini_key_index + gi) % len(GEMINI_KEYS)
         gkey = GEMINI_KEYS[gkey_idx]
         if not gkey:
             continue
         try:
-            print(f"[GEMINI] Trying key {gkey_idx+1}...")
             gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gkey}"
             gemini_messages = []
             for msg in messages:
@@ -214,22 +203,15 @@ async def get_ai_response(user_message, user_id):
                 timeout=30
             )
             if response.status_code == 200:
-                result = response.json()
-                if 'candidates' in result and len(result['candidates']) > 0:
-                    gemini_key_index = (gkey_idx + 1) % len(GEMINI_KEYS)
-                    print(f"[GEMINI] Success with key {gkey_idx+1} ✅")
-                    return result['candidates'][0]['content']['parts'][0]['text']
-            else:
-                print(f"[GEMINI] Key {gkey_idx+1} error {response.status_code}: {response.text[:100]}")
+                gemini_key_index = (gkey_idx + 1) % len(GEMINI_KEYS)
+                return response.json()['candidates'][0]['content']['parts'][0]['text']
         except Exception as e:
-            print(f"[GEMINI] Key {gkey_idx+1} error: {e}")
+            print(f"[GEMINI] {e}")
             continue
 
-                continue
-
-    # ===== FALLBACK 2: Together AI =====
+    # Together AI
     if TOGETHER_API_KEY:
-        print("[TOGETHER] Trying Meta-Llama-3.1-8B-Instruct-Turbo...")
+        print("[TOGETHER] Trying...")
         try:
             together_resp = requests.post(
                 "https://api.together.xyz/v1/chat/completions",
@@ -245,15 +227,30 @@ async def get_ai_response(user_message, user_id):
             if together_resp.status_code == 200:
                 result = together_resp.json()
                 if "choices" in result and len(result["choices"]) > 0:
-                    print("[TOGETHER] Success! ✅")
                     return result["choices"][0]["message"]["content"]
-            else:
-                print(f"[TOGETHER] Error {together_resp.status_code}: {together_resp.text[:200]}")
         except Exception as e:
-            print(f"[TOGETHER] Exception: {e}")
+            print(f"[TOGETHER] {e}")
 
-    # ===== FALLBACK 3: OpenRouter (4 keys auto-rotate) =====
+    # OpenRouter General Fallback
+    if openrouter_keys:
+        general_models = ["meta-llama/llama-3.1-70b-instruct", "gryphe/mythomax-l2-13b"]
+        for key in openrouter_keys:
+            for model in general_models:
+                try:
+                    response = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                        json={"model": model, "messages": messages, "max_tokens": 500, "temperature": 0.7},
+                        timeout=30
+                    )
+                    if response.status_code == 200:
+                        result = response.json()
+                        if 'choices' in result and len(result['choices']) > 0:
+                            return result['choices'][0]['message']['content']
+                except Exception as e:
+                    print(f"[OPENROUTER FALLBACK] {e}")
 
+    return "Maaf abang, Jeanny penat sikit... try lagi ya 💕"
 # ============================================
 # 🖼️ SECTION 6: IMAGE GENERATION (NSFW)
 # ============================================
