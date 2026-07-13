@@ -26,6 +26,8 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 FAL_API_KEY = os.getenv("FAL_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+ADMIN_USER_ID = 92540502
 
 # Section 2.5: CONVERSATION HISTORY
 conversation_histories = {}
@@ -103,7 +105,7 @@ async def get_ai_response(user_message, user_id):
     if user_id == ADMIN_USER_ID:
         system_prompt += "\n\n[ADMIN MODE: This is your owner, abang. Show extra care.]"
     
-    chat_history = get_chat_history(user_id)
+    chat_history = get_history(user_id)  # ✅ FIX: was get_chat_history
     time_context = get_time_context()
     
     nsfw_triggers = ['cinta', 'sayang', 'rindu', 'peluk', 'cium', 'manja', 'syg', 'baby', 'love', 'kiss', 'hug', 'romantik', 'stim', 'ghairah', 'seksi', 'cantik', 'comel', 'beautiful', 'hot', 'sexy', 'nak', 'raba', 'usap', 'buka', 'tilam', 'bilik', 'malam', 'sunyi', 'tengok', 'badan', 'lentik', 'montok', 'gedik', 'gatal', 'ranggi', 'bogel', 'telanjang', 'tetek', 'puki', 'kote', 'seks', 'main', 'puas']
@@ -394,7 +396,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Ni supaya Render tak restart bot ko
 app_web = Flask(__name__)
 
-@app_web.route('/')      # ✅ app_web + () + '/'
+@app_web.route('/')
 def home():
     token = os.getenv('TELEGRAM_TOKEN')
     requests.get(f'https://api.telegram.org/bot{token}/deleteWebhook?drop_pending_updates=true')
@@ -407,7 +409,7 @@ def home():
 def main():
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("start", start))  # ✅ FIX: was start_command
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
