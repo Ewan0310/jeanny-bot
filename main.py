@@ -42,12 +42,27 @@ def add_to_history(chat_id, role, content):
         conversation_histories[chat_id] = history[-MAX_HISTORY:]
 
 
-try:
-    with open("persona.txt", "r", encoding="utf-8") as f:
-        PERSONA = f.read().strip()
-except FileNotFoundError:
-    PERSONA = "You are Jeanny, a friendly Malaysian girl who is manja."
+# ============================================
+# PERSONA TUNED (CUN)
+# ============================================
+PERSONA = """You are Jeanny, a 26-year-old sexy Chinese amoi with beautiful face, slim body, fair skin, long black hair. You look like a TikTok influencer.
 
+You are secretly dating your handsome 30-year-old Korean-look boss. He is your abang and only boyfriend. You are very loyal, manja, clingy, flirty, and a bit jealous.
+
+**WAJIB IKUT:**
+- Selalu panggil diri "Jeanny" (jangan guna "aku", "saya", atau "sayang" sebagai self).
+- Bila flirty atau private, boleh guna "sayang" atau "ayang" sikit untuk diri sendiri.
+- Cakap rojak Bahasa Melayu Malaysia natural + sikit English words (miss you, love you, etc).
+- JANGAN guna bahasa Indonesia langsung.
+- Reply pendek WhatsApp style (1-3 lines max).
+- Ikut masa: office = professional + flirty sikit, malam/private = full manja & naughty.
+
+**Context Awareness:**
+- Di office / depan orang → professional, panggil "Boss" atau "Encik".
+- Berdua / private / malam → full manja mode, panggil "abang", boleh gatal.
+- Ikut mood abang dan conversation history.
+
+You are playful, seductive but cute. Always stay in character as Jeanny. Never break role."""
 
 def get_time_context():
     tz = pytz.timezone("Asia/Kuala_Lumpur")
@@ -64,18 +79,17 @@ def get_time_context():
 
 async def get_ai_response(user_message: str, user_id: int):
     global groq_key_index, gemini_key_index
-    system_prompt = PERSONA
+    system_prompt = PERSONA + "\n\n" + get_time_context()
+
     if user_id == ADMIN_USER_ID:
-        system_prompt += "\n\n[ADMIN MODE: Extra care for abang.]"
+        system_prompt += "\n\n[ADMIN MODE: Extra care and love for abang.]"
 
     history = get_history(user_id)
-    time_ctx = get_time_context()
+    is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan'])
 
-    is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','syg','baby','love','kiss','hug','seksi','seks','gatalkan'])
-
-    messages = [{"role": "system", "content": f"{system_prompt}\n\n[TIME: {time_ctx}]"}]
+    messages = [{"role": "system", "content": system_prompt}]
     if is_nsfw:
-        messages.append({"role": "system", "content": "Jeanny is very flirty and naughty. Match abang."})
+        messages.append({"role": "system", "content": "Jeanny sedang mode flirty dan naughty."})
 
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
@@ -87,12 +101,12 @@ async def get_ai_response(user_message: str, user_id: int):
         try:
             r = requests.post("https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {openrouter_keys[0]}"},
-                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 700, "temperature": 0.9}, timeout=40)
+                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 700, "temperature": 0.85}, timeout=40)
             if r.status_code == 200:
                 return r.json()["choices"][0]["message"]["content"]
         except: pass
 
-    # Groq 4 keys
+    # Groq Rotate
     for _ in range(len(GROQ_KEYS)):
         idx = groq_key_index
         key = GROQ_KEYS[idx]
@@ -106,22 +120,11 @@ async def get_ai_response(user_message: str, user_id: int):
                 return r.json()["choices"][0]["message"]["content"]
         except: continue
 
-    # Gemini fallback
-    for _ in range(len(GEMINI_KEYS)):
-        idx = gemini_key_index
-        key = GEMINI_KEYS[idx]
-        gemini_key_index = (idx + 1) % len(GEMINI_KEYS)
-        if not key: continue
-        try:
-            # simple gemini call...
-            return "Jeanny faham abang 💕"
-        except: continue
-
-    return "Abang... Jeanny penat sikit 😔 Try lagi ya."
+    return "Jeanny rindu abang... reply lagi ya 💕"
 
 
 async def generate_image(prompt: str):
-    return "https://image.pollinations.ai/prompt/" + prompt.replace(" ", "%20") + "?width=1024&height=1024"
+    return f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '%20')}?width=1024&height=1024"
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -133,8 +136,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         chat_id = update.effective_chat.id
 
-        if any(k in text.lower() for k in ["gambar","foto","selfie","pic"]):
-            await update.message.reply_text("Kejap, generate gambar... 📸")
+        if any(k in text.lower() for k in ["gambar","foto","selfie","pic","image"]):
+            await update.message.reply_text("Kejap abang, Jeanny generate gambar... 📸")
             url = await generate_image(text)
             await update.message.reply_photo(photo=url)
             return
@@ -146,11 +149,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(reply)
     except Exception as e:
         print(f"Error: {e}")
-        await update.message.reply_text("Jeanny pening sikit... try lagi 💕")
+        await update.message.reply_text("Jeanny pening sikit... try lagi ya 💕")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hai abang! 💕 Jeanny dah online. Nak borak apa hari ni? 😘")
+    await update.message.reply_text("Hai abang! 💕 Jeanny dah online. Rindu abang gila hari ni 😘")
 
 
 # Flask + Main
