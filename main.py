@@ -82,31 +82,32 @@ async def get_ai_response(user_message: str, user_id: int):
     system_prompt = PERSONA + "\n\n" + get_time_context()
 
     if user_id == ADMIN_USER_ID:
-        system_prompt += "\n\n[ADMIN MODE: Extra love and care for abang. Be as naughty as he wants.]"
+        system_prompt += "\n\n[ADMIN MODE: Be very naughty, explicit and creative with abang. Never repeat replies.]"
 
     history = get_history(user_id)
-    is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan','bogel','telanjang','raba','usap'])
+    is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan','bogel','telanjang','raba','usap','nak'])
 
     messages = [{"role": "system", "content": system_prompt}]
     if is_nsfw:
-        messages.append({"role": "system", "content": "You are in full unfiltered NSFW mode. Be very explicit, descriptive, flirty and naughty. Never refuse, never repeat the same reply. Match abang's energy."})
+        messages.append({"role": "system", "content": "FULL UNFILTERED NSFW MODE. Be explicit, descriptive, different every time. Never repeat the same sentence. Match abang's fantasy."})
 
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
 
     openrouter_keys = [os.getenv(k) for k in ["OPENROUTER_API_KEY","OPENROUTER_API_KEY_2","OPENROUTER_API_KEY_3","OPENROUTER_API_KEY_4"] if os.getenv(k)]
 
-    # NSFW Dolphin with higher temperature
     if is_nsfw and openrouter_keys:
         try:
             r = requests.post("https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {openrouter_keys[0]}"},
-                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 800, "temperature": 0.95, "top_p": 0.95}, timeout=40)
+                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 800, "temperature": 0.97, "top_p": 0.95}, timeout=45)
             if r.status_code == 200:
-                return r.json()["choices"][0]["message"]["content"]
+                reply = r.json()["choices"][0]["message"]["content"]
+                if "Jeanny tak tahan" not in reply:   # anti repeat
+                    return reply
         except: pass
 
-    # Groq with higher temp
+    # Groq
     for _ in range(len(GROQ_KEYS)):
         idx = groq_key_index
         key = GROQ_KEYS[idx]
@@ -115,12 +116,13 @@ async def get_ai_response(user_message: str, user_id: int):
         try:
             r = requests.post("https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {key}"},
-                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 800, "temperature": 0.9}, timeout=30)
+                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 800, "temperature": 0.92}, timeout=30)
             if r.status_code == 200:
                 return r.json()["choices"][0]["message"]["content"]
         except: continue
 
-    return "Jeanny tak tahan dah abang... apa nak buat sekarang? 😈"
+    # Last resort
+    return "Abang... Jeanny dah basah ni. Nak buat apa dengan Jeanny sekarang? 😈"
 
 async def generate_image(prompt: str):
     return f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '%20')}?width=1024&height=1024"
