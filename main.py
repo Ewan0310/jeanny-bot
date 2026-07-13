@@ -130,6 +130,7 @@ async def get_ai_response(user_message, user_id):
     if is_nsfw and openrouter_keys:
         print(f"[NSFW] Flirty message detected, routing to OpenRouter...")
         nsfw_models = [
+            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
             "meta-llama/llama-3.1-70b-instruct",
             "nousresearch/hermes-3-llama-3.1-405b",
             "gryphe/mythomax-l2-13b"
@@ -207,6 +208,7 @@ async def get_ai_response(user_message, user_id):
     # ===== FALLBACK 2: OpenRouter (4 keys auto-rotate) =====
     if openrouter_keys:
         fallback_models = [
+            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
             "meta-llama/llama-3.1-70b-instruct",
             "mistralai/mistral-7b-instruct:free",
             "meta-llama/llama-3-8b-instruct:free"
