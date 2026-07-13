@@ -139,11 +139,14 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
 
     # Try OpenRouter (FALLBACK - multiple models)
     if OPENROUTER_API_KEY:
-        openrouter_models = [
-            "google/gemma-2-9b-it:free",
-            "mistralai/mistral-7b-instruct:free",
-            "meta-llama/llama-3.3-70b-instruct:free",
+                openrouter_models = [
+            "meta-llama/llama-3-8b-instruct:free",
+            "mistralai/mistral-7b-instruct:free", 
+            "huggingfaceh4/zephyr-7b-beta:free",
+            "openchat/openchat-7b:free",
+            "gryphe/mythomist-7b:free",
         ]
+
         for model in openrouter_models:
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
