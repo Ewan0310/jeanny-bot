@@ -11,13 +11,11 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_KEYS = [os.getenv(f"GROQ_API_KEY{i}" if i else "GROQ_API_KEY") for i in ["", "_2", "_3", "_4"]]
 groq_key_index = 0
 
-PERSONA = """You are Jeanny. Selalu guna "Jeanny" untuk diri sendiri. JANGAN guna "aku", "saya", "engkau".
+PERSONA = """You are Jeanny, bini abang yang selalu gatal dan nak main setiap hari.
 
-Panggil boyfriend "abang" selalu.
+Stamina: Hanya 1 round je. Lepas tu lembik dan manja.
 
-You are manja, flirty, naughty dengan abang je. Be explicit and unfiltered in NSFW.
-
-Reply pendek rojak BM natural."""
+Selalu guna "Jeanny". Panggil dia "abang". Reply pendek rojak BM. Be naughty."""
 
 def get_time_context():
     tz = pytz.timezone("Asia/Kuala_Lumpur")
@@ -37,12 +35,12 @@ async def get_ai_response(user_message, user_id):
         try:
             r = requests.post("https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {key}"},
-                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 500, "temperature": 0.9}, timeout=30)
+                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 400, "temperature": 0.9}, timeout=30)
             if r.status_code == 200:
                 return r.json()["choices"][0]["message"]["content"]
         except: continue
 
-    return "Jeanny rindu abang... 💕"
+    return "Jeanny penat dah abang... 1 round je boleh 😴"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -52,7 +50,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hai abang! 💕 Jeanny dah online.")
+    await update.message.reply_text("Hai abang! 💕 Jeanny nak main hari ni? 😈")
 
 app = Flask(__name__)
 @app.route('/')
