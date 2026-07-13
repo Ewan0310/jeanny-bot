@@ -91,9 +91,9 @@ def get_time_context():
 
     return f"[MASA SEKARANG: {now.strftime('%I:%M %p')}, {day}, {period}]"
 
-# ============================================
-# 🤖 SECTION 5: AI RESPONSE (TEXT CHAT)
-# ============================================
+# ============================================================
+# SECTION 5: AI RESPONSE (Groq primary → OpenRouter fallback loop)
+# ============================================================
 # Ni function yang hantar mesej ke Groq/OpenRouter dan dapat balasan
 async def get_ai_response(user_message: str, chat_id: int) -> str:
     time_context = get_time_context()
@@ -137,33 +137,42 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
         except Exception as e:
             print(f"[GROQ ERROR] {e}")
 
-    # Try OpenRouter (FALLBACK)
+    # Try OpenRouter (FALLBACK - multiple models)
     if OPENROUTER_API_KEY:
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "meta-llama/llama-3.3-70b-instruct:free",
-                        "messages": messages,
-                        "max_tokens": 1024,
-                        "temperature": 0.8,
-                    },
-                )
-                data = response.json()
-                if response.status_code != 200:
-                    print(f"[OPENROUTER ERROR] Status {response.status_code}: {data}")
-                    raise Exception(f"OpenRouter status {response.status_code}")
-                return data["choices"][0]["message"]["content"]
-        except Exception as e:
-            print(f"[OPENROUTER ERROR] {e}")
+        openrouter_models = [
+            "google/gemma-2-9b-it:free",
+            "mistralai/mistral-7b-instruct:free",
+            "meta-llama/llama-3.3-70b-instruct:free",
+        ]
+        for model in openrouter_models:
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    response = await client.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "max_tokens": 1024,
+                            "temperature": 0.8,
+                        },
+                    )
+                    data = response.json()
+                    if response.status_code != 200:
+                        print(f"[OPENROUTER ERROR] {model} - Status {response.status_code}")
+                        continue
+                    print(f"[OPENROUTER OK] Using model: {model}")
+                    return data["choices"][0]["message"]["content"]
+            except Exception as e:
+                print(f"[OPENROUTER ERROR] {model} - {e}")
+                continue
 
-    # Both failed
+    # All failed
     return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
+
 
 
 
