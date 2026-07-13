@@ -102,6 +102,7 @@ def get_time_context():
 # SECTION 5: AI RESPONSE WITH NSFW ROUTING
 # ============================================
 async def get_ai_response(user_message, user_id):
+    global gemini_key_index
     system_prompt = PERSONA
 
     if user_id == ADMIN_USER_ID:
