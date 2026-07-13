@@ -110,4 +110,37 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         chat_id = update.effective_chat.id
 
-        if any(k in
+        if any(k in text.lower() for k in ["gambar","foto","selfie","pic","image"]):
+            await update.message.reply_text("Kejap abang, Jeanny generate gambar... 📸")
+            url = await generate_image(text)
+            await update.message.reply_photo(photo=url)
+            return
+
+        add_to_history(chat_id, "user", text)
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+        reply = await get_ai_response(text, chat_id)
+        add_to_history(chat_id, "assistant", reply)
+        await update.message.reply_text(reply)
+    except Exception as e:
+        print(f"Error: {e}")
+        await update.message.reply_text("Jeanny pening sikit... try lagi ya 💕")
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hai abang! 💕 Jeanny dah online. Rindu abang gila hari ni 😘")
+
+
+app = Flask(__name__)
+@app.route('/')
+def home():
+    return "Jeanny Bot is alive! 💕"
+
+def run_web():
+    app.run(host='0.0.0.0', port=10000, debug=False)
+
+def main():
+    print("🚀 Starting Jeanny Bot...")
+    Thread(target=run_web, daemon=True).start()
+
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    application.add_handler(Command
