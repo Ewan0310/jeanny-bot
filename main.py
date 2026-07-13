@@ -139,9 +139,9 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
 
     # Try OpenRouter (FALLBACK - multiple models)
     if OPENROUTER_API_KEY:
-                openrouter_models = [
+        openrouter_models = [
             "meta-llama/llama-3-8b-instruct:free",
-            "mistralai/mistral-7b-instruct:free", 
+            "mistralai/mistral-7b-instruct:free",
             "huggingfaceh4/zephyr-7b-beta:free",
             "openchat/openchat-7b:free",
             "gryphe/mythomist-7b:free",
@@ -175,9 +175,6 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
 
     # All failed
     return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
-
-
-
 
 # ============================================
 # 🖼️ SECTION 6: IMAGE GENERATION (NSFW)
