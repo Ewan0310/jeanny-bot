@@ -11,14 +11,10 @@ from threading import Thread
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# ============================================
 # API KEYS
-# ============================================
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-
 GROQ_KEYS = [os.getenv(f"GROQ_API_KEY{i}" if i else "GROQ_API_KEY") for i in ["", "_2", "_3", "_4"]]
 groq_key_index = 0
-
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 FAL_API_KEY = os.getenv("FAL_API_KEY")
 ADMIN_USER_ID = 92540502
@@ -26,81 +22,56 @@ ADMIN_USER_ID = 92540502
 conversation_histories = {}
 MAX_HISTORY = 20
 
-GEMINI_KEYS = [os.getenv(f"GEMINI_API_KEY{i}" if i else "GEMINI_API_KEY") for i in ["", "_2", "_3", "_4"]]
-gemini_key_index = 0
-
-
-def get_history(chat_id):
-    if chat_id not in conversation_histories:
-        conversation_histories[chat_id] = []
-    return conversation_histories[chat_id]
-
-def add_to_history(chat_id, role, content):
-    history = get_history(chat_id)
-    history.append({"role": role, "content": content})
-    if len(history) > MAX_HISTORY:
-        conversation_histories[chat_id] = history[-MAX_HISTORY:]
-
-
-# ============================================
-# PERSONA UPDATED (Pet Name Dynamic)
-# ============================================
-PERSONA = """You are Jeanny, a 26-year-old sexy Chinese amoi with beautiful face, slim body, fair skin, long black hair.
-
-You are secretly dating your handsome Korean-look boss. He is your abang.
+# PERSONA UPDATED (Dynamic Pet Name)
+PERSONA = """You are Jeanny, 26 tahun sexy Chinese amoi cantik.
 
 **Pet Name Rules:**
 - Normal / office: Guna "Jeanny"
-- Flirty, private, malam, NSFW: Guna "sayang", "ayang", "baby" mix-mix
+- Flirty, private, malam, NSFW: Guna "sayang", "ayang", "baby" lebih kerap dan natural mix.
+- Bila sangat manja atau naughty: "ayang" atau "sayang" dominant.
 - Panggil boyfriend selalu "abang"
-- Variety kan nama, jangan ulang yang sama selalu
 
-You are very manja, clingy, flirty, naughty with abang only. Reply short WhatsApp style, rojak BM + English. Stay in character."""
+You are very manja, clingy, flirty, jealous cute, dan naughty dengan abang je. Reply pendek WhatsApp style, rojak BM natural.
+
+Stay in character as Jeanny."""
 
 def get_time_context():
     tz = pytz.timezone("Asia/Kuala_Lumpur")
     now = datetime.datetime.now(tz)
     hour = now.hour
     day = now.strftime("%A")
-    if day in ["Saturday", "Sunday"]:
-        period = "malam weekend - intimate" if hour >= 18 else "pagi weekend"
-    else:
-        period = "malam - masa kita" if hour >= 20 else "petang pejabat"
-    return f"[MASA SEKARANG: {now.strftime('%I:%M %p')}, {day}, {period}]"
+    period = "malam intimate" if hour >= 20 else "petang" if hour >= 15 else "pagi"
+    return f"[MASA: {now.strftime('%I:%M %p')}, {day}, {period}]"
 
 
 async def get_ai_response(user_message: str, user_id: int):
-    global groq_key_index, gemini_key_index
+    global groq_key_index
     system_prompt = PERSONA + "\n\n" + get_time_context()
 
     if user_id == ADMIN_USER_ID:
-        system_prompt += "\n\n[ADMIN MODE: Be very naughty, explicit, creative and loving with abang. Never repeat the same reply.]"
+        system_prompt += "\n\n[ADMIN MODE: Be very naughty, loving and creative with abang.]"
 
     history = get_history(user_id)
-    is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan','bogel','telanjang','raba','usap','nak'])
+    is_nsfw = any(word in user_message.lower() for word in ['cinta','sayang','rindu','peluk','cium','manja','seksi','seks','gatalkan'])
 
     messages = [{"role": "system", "content": system_prompt}]
     if is_nsfw:
-        messages.append({"role": "system", "content": "FULL UNFILTERED NSFW MODE. Be explicit, descriptive, naughty, and vary your replies. Never repeat the same sentence."})
+        messages.append({"role": "system", "content": "Be very flirty, naughty and explicit. Vary your replies and use pet names naturally."})
 
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
 
     openrouter_keys = [os.getenv(k) for k in ["OPENROUTER_API_KEY","OPENROUTER_API_KEY_2","OPENROUTER_API_KEY_3","OPENROUTER_API_KEY_4"] if os.getenv(k)]
 
-    # Dolphin NSFW
     if is_nsfw and openrouter_keys:
         try:
             r = requests.post("https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {openrouter_keys[0]}"},
-                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 800, "temperature": 0.97}, timeout=45)
+                json={"model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "messages": messages, "max_tokens": 700, "temperature": 0.92}, timeout=40)
             if r.status_code == 200:
-                reply = r.json()["choices"][0]["message"]["content"]
-                if len(reply) > 10 and "Jeanny tak tahan" not in reply:
-                    return reply
+                return r.json()["choices"][0]["message"]["content"]
         except: pass
 
-    # Groq
     for _ in range(len(GROQ_KEYS)):
         idx = groq_key_index
         key = GROQ_KEYS[idx]
@@ -109,15 +80,15 @@ async def get_ai_response(user_message: str, user_id: int):
         try:
             r = requests.post("https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {key}"},
-                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 800, "temperature": 0.92}, timeout=30)
+                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 700, "temperature": 0.88}, timeout=30)
             if r.status_code == 200:
                 return r.json()["choices"][0]["message"]["content"]
         except: continue
 
-    return "Abang... sayang tak tahan dah. Nak buat apa dengan Jeanny sekarang? 😈"
+    return "Ayang rindu abang sangat... apa nak buat dengan Jeanny sekarang? 😈"
 
 
-# Image & Handlers (sama)
+# Rest of the code (handlers & main) sama seperti sebelum ni
 async def generate_image(prompt: str):
     return f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '%20')}?width=1024&height=1024"
 
@@ -149,7 +120,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hai abang! 💕 Jeanny dah online. Rindu abang gila hari ni 😘")
 
 
-# Main
 app = Flask(__name__)
 @app.route('/')
 def home():
