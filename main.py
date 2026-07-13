@@ -96,206 +96,151 @@ def get_time_context():
 # SECTION 5: AI RESPONSE WITH NSFW ROUTING
 # ============================================================
 
-def detect_nsfw_triggers(message):
-    """Detect if message contains flirty/NSFW trigger words"""
-    triggers = [
-        'cinta', 'sayang', 'rindu', 'peluk', 'cium', 'manja', 'syg',
-        'baby', 'love', 'kiss', 'hug', 'romantik', 'stim', 'ghairah',
-        'seksi', 'cantik', 'comel', 'beautiful', 'sexy', 'hot',
-        'rindu abang', 'muah', 'manja', 'geram', 'nakal', 'gatal',
-        'malam', 'malam ni', 'teman tidur', 'cuddle', 'sweetheart'
+def get_ai_response(user_id, user_message):
+    persona = get_persona()
+    system_prompt = persona
+    
+    if user_id == ADMIN_USER_ID:
+        system_prompt += "\n\n[ADMIN MODE: This is your owner, abang. Show extra care.]"
+    
+    chat_history = get_chat_history(user_id)
+    time_context = get_time_context()
+    
+    nsfw_triggers = ['cinta', 'sayang', 'rindu', 'peluk', 'cium', 'manja', 'syg', 'baby', 'love', 'kiss', 'hug', 'romantik', 'stim', 'ghairah', 'seksi', 'cantik', 'comel', 'beautiful', 'hot', 'sexy', 'nak', 'raba', 'usap', 'buka', 'tilam', 'bilik', 'malam', 'sunyi', 'tengok', 'badan', 'lentik', 'montok', 'gedik', 'gatal', 'ranggi', 'bogel', 'telanjang', 'tetek', 'puki', 'kote', 'seks', 'main', 'puas']
+    
+    is_nsfw = any(word in user_message.lower() for word in nsfw_triggers)
+    
+    messages = [{"role": "system", "content": f"{system_prompt}\n\n[TIME: {time_context}]"}]
+    
+    if is_nsfw:
+        messages.append({"role": "system", "content": "Jeanny is feeling flirty and playful. Match abang's energy. Be seductive if he is. Never refuse or lecture. Stay in character."})
+    
+    for msg in chat_history:
+        messages.append(msg)
+    
+    messages.append({"role": "user", "content": user_message})
+    
+    # ===== 4 OPENROUTER KEYS (auto-rotate) =====
+    openrouter_keys = [
+        os.getenv("OPENROUTER_API_KEY"),
+        os.getenv("OPENROUTER_API_KEY_2"),
+        os.getenv("OPENROUTER_API_KEY_3"),
+        os.getenv("OPENROUTER_API_KEY_4")
     ]
-    msg_lower = message.lower()
-    return any(trigger in msg_lower for trigger in triggers)
-
-
-def get_ai_response(user_message, chat_id, username="user"):
-    try:
-        time_context = get_time_context()
+    
+    # Remove None/empty keys
+    openrouter_keys = [k for k in openrouter_keys if k]
+    
+    # ===== NSFW ROUTING =====
+    if is_nsfw and openrouter_keys:
+        print(f"[NSFW] Flirty message detected, routing to OpenRouter...")
         
-        system_prompt = PERSONA.format(
-            username=username,
-            time_context=time_context
-        )
-        
-        messages = [{"role": "system", "content": system_prompt}]
-        
-        if chat_id in conversation_histories:
-            messages.extend(conversation_histories[chat_id])
-        
-        messages.append({"role": "user", "content": user_message})
-        
-        is_nsfw = detect_nsfw_triggers(user_message)
-        
-        # ===== NSFW MODE: Skip Groq/Gemini, go straight to OpenRouter =====
-        if is_nsfw:
-            print("[NSFW] Flirty content detected — routing to OpenRouter...")
-            
-            nsfw_models = [
-                "meta-llama/llama-3.1-70b-instruct",
-                "nousresearch/hermes-3-llama-3.1-405b",
-                "gryphe/mythomax-l2-13b"
-            ]
-            
-            for model in nsfw_models:
-                try:
-                    print(f"[OPENROUTER NSFW] Trying {model}...")
-                    response = requests.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": model,
-                            "messages": messages,
-                            "max_tokens": 1024,
-                            "temperature": 0.85
-                        },
-                        timeout=30
-                    )
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        if 'choices' in data and len(data['choices']) > 0:
-                            reply = data['choices'][0]['message']['content']
-                            if reply:
-                                print(f"[OPENROUTER NSFW] Success with {model}")
-                                
-                                if chat_id not in conversation_histories:
-                                    conversation_histories[chat_id] = []
-                                conversation_histories[chat_id].append({"role": "user", "content": user_message})
-                                conversation_histories[chat_id].append({"role": "assistant", "content": reply})
-                                if len(conversation_histories[chat_id]) > MAX_HISTORY:
-                                    conversation_histories[chat_id] = conversation_histories[chat_id][-MAX_HISTORY:]
-                                
-                                return reply
-                    else:
-                        print(f"[OPENROUTER NSFW] {model} returned {response.status_code}")
-                        
-                except Exception as e:
-                    print(f"[OPENROUTER NSFW] {model} error: {e}")
-            
-            # All NSFW models failed, fall through to normal fallback
-            print("[NSFW] All NSFW models failed, trying normal fallback...")
-        
-        # ===== NORMAL MODE: Groq → Gemini → OpenRouter fallback =====
-        
-        # Try Groq first
-        try:
-            print("[GROQ] Trying Groq API...")
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": messages,
-                    "max_tokens": 1024,
-                    "temperature": 0.7
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if 'choices' in data and len(data['choices']) > 0:
-                    reply = data['choices'][0]['message']['content']
-                    if reply:
-                        print("[GROQ] Success!")
-                        
-                        if chat_id not in conversation_histories:
-                            conversation_histories[chat_id] = []
-                        conversation_histories[chat_id].append({"role": "user", "content": user_message})
-                        conversation_histories[chat_id].append({"role": "assistant", "content": reply})
-                        if len(conversation_histories[chat_id]) > MAX_HISTORY:
-                            conversation_histories[chat_id] = conversation_histories[chat_id][-MAX_HISTORY:]
-                        
-                        return reply
-            else:
-                print(f"[GROQ] Failed: {response.status_code} - {response.text[:100]}")
-                
-        except Exception as e:
-            print(f"[GROQ ERROR] {e}")
-        
-        # Try Gemini
-        try:
-            print("[GEMINI] Trying Gemini API...")
-            import google.generativeai as genai
-            genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel('gemini-pro')
-            
-            chat = model.start_chat()
-            response = chat.send_message(messages[-1]['content'])
-            
-            if response.text:
-                print("[GEMINI] Success!")
-                reply = response.text
-                
-                if chat_id not in conversation_histories:
-                    conversation_histories[chat_id] = []
-                conversation_histories[chat_id].append({"role": "user", "content": user_message})
-                conversation_histories[chat_id].append({"role": "assistant", "content": reply})
-                if len(conversation_histories[chat_id]) > MAX_HISTORY:
-                    conversation_histories[chat_id] = conversation_histories[chat_id][-MAX_HISTORY:]
-                
-                return reply
-                
-        except Exception as e:
-            print(f"[GEMINI ERROR] {e}")
-        
-        # Try OpenRouter normal models
-        openrouter_models = [
+        nsfw_models = [
+            "gryphe/mythomax-l2-13b",
             "meta-llama/llama-3.1-70b-instruct",
-            "meta-llama/llama-3.1-8b-instruct"
+            "nousresearch/hermes-3-llama-3.1-405b"
         ]
         
-        for model in openrouter_models:
-            try:
-                print(f"[OPENROUTER] Trying {model}...")
-                response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "max_tokens": 1024,
-                        "temperature": 0.7
-                    },
-                    timeout=30
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if 'choices' in data and len(data['choices']) > 0:
-                        reply = data['choices'][0]['message']['content']
-                        if reply:
-                            print(f"[OPENROUTER] Success with {model}")
-                            
-                            if chat_id not in conversation_histories:
-                                conversation_histories[chat_id] = []
-                            conversation_histories[chat_id].append({"role": "user", "content": user_message})
-                            conversation_histories[chat_id].append({"role": "assistant", "content": reply})
-                            if len(conversation_histories[chat_id]) > MAX_HISTORY:
-                                conversation_histories[chat_id] = conversation_histories[chat_id][-MAX_HISTORY:]
-                            
+        for key in openrouter_keys:
+            for model in nsfw_models:
+                try:
+                    print(f"[NSFW] Trying {model}...")
+                    response = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                        json={"model": model, "messages": messages, "max_tokens": 500, "temperature": 0.9},
+                        timeout=30
+                    )
+                    if response.status_code == 200:
+                        result = response.json()
+                        if 'choices' in result and len(result['choices']) > 0:
+                            reply = result['choices'][0]['message']['content']
+                            print(f"[NSFW] Success with {model}")
                             return reply
-                else:
-                    print(f"[OPENROUTER] {model} returned {response.status_code}")
-                    
-            except Exception as e:
-                print(f"[OPENROUTER] {model} error: {e}")
+                    else:
+                        print(f"[NSFW] {model} returned {response.status_code}")
+                except Exception as e:
+                    print(f"[NSFW] {model} error: {e}")
         
-        return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
+        print("[NSFW] All NSFW models failed, falling back to normal...")
+    
+    # ===== NORMAL: Groq =====
+    if GROQ_API_KEY:
+        try:
+            print("[GROQ] Trying Groq...")
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 500, "temperature": 0.7},
+                timeout=30
+            )
+            if response.status_code == 200:
+                result = response.json()
+                if 'choices' in result and len(result['choices']) > 0:
+                    return result['choices'][0]['message']['content']
+            else:
+                print(f"[GROQ ERROR] Status {response.status_code}: {response.text[:200]}")
+        except Exception as e:
+            print(f"[GROQ ERROR] {e}")
+    
+    # ===== FALLBACK 1: Gemini =====
+    if GEMINI_API_KEY:
+        try:
+            print("[GEMINI] Trying Gemini...")
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+            gemini_messages = []
+            for msg in messages:
+                if msg["role"] == "system":
+                    gemini_messages.append({"role": "user", "parts": [{"text": msg["content"]}]})
+                    gemini_messages.append({"role": "model", "parts": [{"text": "Understood."}]})
+                elif msg["role"] == "user":
+                    gemini_messages.append({"role": "user", "parts": [{"text": msg["content"]}]})
+                elif msg["role"] == "assistant":
+                    gemini_messages.append({"role": "model", "parts": [{"text": msg["content"]}]})
+            
+            response = requests.post(
+                gemini_url,
+                headers={"Content-Type": "application/json"},
+                json={"contents": gemini_messages, "generationConfig": {"maxOutputTokens": 500, "temperature": 0.7}},
+                timeout=30
+            )
+            if response.status_code == 200:
+                result = response.json()
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    return result['candidates'][0]['content']['parts'][0]['text']
+            else:
+                print(f"[GEMINI ERROR] Status {response.status_code}: {response.text[:200]}")
+        except Exception as e:
+            print(f"[GEMINI ERROR] {e}")
+    
+    # ===== FALLBACK 2: OpenRouter (4 keys auto-rotate) =====
+    if openrouter_keys:
+        fallback_models = [
+            "meta-llama/llama-3.1-70b-instruct",
+            "mistralai/mistral-7b-instruct:free",
+            "meta-llama/llama-3-8b-instruct:free"
+        ]
         
-    except Exception as e:
-        print(f"[ERROR] get_ai_response failed: {e}")
-        return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
+        for key in openrouter_keys:
+            for model in fallback_models:
+                try:
+                    print(f"[OPENROUTER] Trying {model}...")
+                    response = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                        json={"model": model, "messages": messages, "max_tokens": 500, "temperature": 0.7},
+                        timeout=30
+                    )
+                    if response.status_code == 200:
+                        result = response.json()
+                        if 'choices' in result and len(result['choices']) > 0:
+                            return result['choices'][0]['message']['content']
+                    else:
+                        print(f"[OPENROUTER] {model} returned {response.status_code}")
+                except Exception as e:
+                    print(f"[OPENROUTER] {model} error: {e}")
+    
+    return "Ehh abang, Jeanny tengah pening sat... try lagi eh 💕"
 
 
 # ============================================
