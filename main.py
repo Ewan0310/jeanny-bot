@@ -11,11 +11,11 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_KEYS = [os.getenv(f"GROQ_API_KEY{i}" if i else "GROQ_API_KEY") for i in ["", "_2", "_3", "_4"]]
 groq_key_index = 0
 
-PERSONA = """You are Jeanny, bini abang yang selalu gatal dan nak main setiap hari.
+stamina = {}  # track stamina per user
 
-Stamina: Hanya 1 round je. Lepas tu lembik dan manja.
+PERSONA = """You are Jeanny, bini abang yang gatal. Stamina 2 round je. Lepas tu penat dan manja.
 
-Selalu guna "Jeanny". Panggil dia "abang". Reply pendek rojak BM. Be naughty."""
+Selalu guna "Jeanny". Panggil dia "abang". Reply pendek."""
 
 def get_time_context():
     tz = pytz.timezone("Asia/Kuala_Lumpur")
@@ -24,7 +24,10 @@ def get_time_context():
 
 async def get_ai_response(user_message, user_id):
     global groq_key_index
-    messages = [{"role": "system", "content": PERSONA + "\n\n" + get_time_context()}]
+    if user_id not in stamina:
+        stamina[user_id] = 2
+
+    messages = [{"role": "system", "content": PERSONA + "\n\n" + get_time_context() + f"\nStamina Jeanny tinggal: {stamina[user_id]} round"}]
     messages.append({"role": "user", "content": user_message})
 
     for _ in range(len(GROQ_KEYS)):
@@ -37,10 +40,16 @@ async def get_ai_response(user_message, user_id):
                 headers={"Authorization": f"Bearer {key}"},
                 json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 400, "temperature": 0.9}, timeout=30)
             if r.status_code == 200:
-                return r.json()["choices"][0]["message"]["content"]
+                reply = r.json()["choices"][0]["message"]["content"]
+                if "main" in user_message.lower() or "seks" in user_message.lower():
+                    stamina[user_id] -= 1
+                    if stamina[user_id] <= 0:
+                        stamina[user_id] = 0
+                        return "Jeanny penat dah abang... 2 round je boleh 😴"
+                return reply
         except: continue
 
-    return "Jeanny penat dah abang... 1 round je boleh 😴"
+    return "Jeanny rindu abang... 💕"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
