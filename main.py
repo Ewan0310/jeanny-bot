@@ -183,9 +183,10 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
         messages.append({"role": "user", "content": user_message})
 
         openrouter_models = [
-            "meta-llama/llama-3.1-8b-instruct",
-            "mistralai/mistral-7b-instruct",
-        ]
+    "google/gemma-2-9b-it:free",
+    "mistralai/mistral-7b-instruct:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+]
         for model in openrouter_models:
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
