@@ -183,9 +183,9 @@ async def get_ai_response(user_message: str, chat_id: int) -> str:
         messages.append({"role": "user", "content": user_message})
 
         openrouter_models = [
-    "google/gemma-2-9b-it:free",
-    "mistralai/mistral-7b-instruct:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
+    "google/gemma-2-9b-it",
+    "mistralai/mistral-7b-instruct",
+    "meta-llama/llama-3.1-8b-instruct",
 ]
         for model in openrouter_models:
             try:
