@@ -10,3 +10,4 @@ Pillow
 fal-client
 flask
 pytz
+google-generativeai
