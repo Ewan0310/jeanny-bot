@@ -12,6 +12,7 @@ from gtts import gTTS
 from apscheduler.schedulers.background import BackgroundScheduler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from openai import OpenAI
 import google.generativeai as genai
 import requests
@@ -503,6 +504,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Hai! 💕 Aku Jeanny, teman chat ko! Bagitahu nama ko la! 🥰"
         )
 
+# ===== SECTION 9.5: COMPANION MINI APP =====
+from flask import Flask, send_from_directory
+
+# Serve webapp files
+@app.route('/webapp')
+def webapp():
+    return send_from_directory('webapp', 'index.html')
+
+@app.route('/webapp/<path:filename>')
+def webapp_files(filename):
+    return send_from_directory('webapp', filename)
+
+async def companion_command(update, context):
+    keyboard = [[InlineKeyboardButton(
+        "💕 Open Jeanny Companion",
+        web_app=WebAppInfo(url="https://jeanny-bot.onrender.com/webapp")
+    )]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "Tap button ni nak jumpa Jeanny~ 💕",
+        reply_markup=reply_markup
+    )
+
 # ============ SECTION 10: WEB SERVER (Keep-Alive) ============
 app_flask = Flask('')
 
@@ -525,6 +549,8 @@ def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("companion", companion_command))
+
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
