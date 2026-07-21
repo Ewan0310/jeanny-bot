@@ -511,7 +511,7 @@ def home():
     return "Jeanny is alive! 💕"
 
 def run_flask():
-    app_flask.run(host='0.0.0.0', port=8080)
+    app_flask.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
 
 def keep_alive():
     t = Thread(target=run_flask)
