@@ -6,14 +6,12 @@ import random
 import asyncio
 import logging
 from datetime import datetime
-from flask import Flask
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request, jsonify
 from threading import Thread
 from gtts import gTTS
 from apscheduler.schedulers.background import BackgroundScheduler
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from openai import OpenAI
 import google.generativeai as genai
 import requests
@@ -63,7 +61,7 @@ NSFW_TRIGGERS = [
     "seks", "sex", "cium", "kiss", "peluk", "hug", "rindu", "sayang",
     "cinta", "love", "baby", "bogel", "naked", "ghairah", "stim",
     "hot", "romantis", "intim", "malam", "ranjang", "tubuh",
-    "raba", "pegang", "hisap", "jilat", "hisap", "buka baju",
+    "raba", "pegang", "hisap", "jilat", "buka baju",
     "kinky", "hentai", "nsfw", "daddy", "foreplay",
 ]
 
@@ -152,7 +150,6 @@ def update_memory(message, response):
         topics.append(message[:50])
         memory["topics_discussed"] = topics[-20:]
 
-    # Detect names
     msg = message.lower()
     for trigger in ["nama aku", "panggil aku", "i'm ", "im ", "my name"]:
         if trigger in msg:
@@ -361,7 +358,6 @@ def get_ai_response(user_message):
             result = call_openrouter(messages, model)
             if result:
                 return result
-        # Fallback to Together if OpenRouter fails
         result = call_together(messages)
         if result:
             return result
@@ -394,7 +390,6 @@ def get_ai_response(user_message):
 
 # ============ SECTION 6: IMAGE GENERATION ============
 async def generate_image(update: Update, prompt: str):
-    # Try fal.ai first
     if FAL_KEY:
         try:
             import fal_client
@@ -407,7 +402,6 @@ async def generate_image(update: Update, prompt: str):
         except Exception as e:
             logger.error(f"Fal error: {e}")
 
-    # Try Pollinations as fallback
     try:
         encoded = prompt.replace(" ", "%20")
         url = f"https://image.pollinations.ai/prompt/{encoded}?width=512&height=512"
@@ -441,7 +435,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         caption = update.message.caption or "Describe this image"
 
-        # Try Gemini vision
         key = get_gemini_key()
         if key:
             try:
@@ -469,23 +462,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     logger.info(f"📩 Message from {update.effective_user.id}: {user_message[:50]}...")
 
-    # Typing indicator
     await update.message.chat.send_action("typing")
 
-    # Get AI response
     ai_response = get_ai_response(user_message)
 
-    # Send text reply
     await update.message.reply_text(ai_response)
 
-    # Update memory
     memory = update_memory(user_message, ai_response)
 
-    # Random voice (30% chance)
     if random.random() < 0.3:
         await send_voice_reply(update, ai_response)
 
-    # Random image (10% chance, only if not NSFW)
     if random.random() < 0.1 and not is_nsfw_message(user_message):
         try:
             await generate_image(update, "cute anime girl waving, kawaii, warm colors, happy")
@@ -505,18 +492,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Hai! 💕 Aku Jeanny, teman chat ko! Bagitahu nama ko la! 🥰"
         )
 
-# ===== SECTION 9.5: COMPANION MINI APP =====
-from flask import Flask, send_from_directory
-
-# Serve webapp files
-@app.route('/webapp')
-def webapp():
-    return send_from_directory('webapp', 'index.html')
-
-@app.route('/webapp/<path:filename>')
-def webapp_files(filename):
-    return send_from_directory('webapp', filename)
-
+# ============ SECTION 9.5: COMPANION COMMAND ============
 async def companion_command(update, context):
     keyboard = [[InlineKeyboardButton(
         "💕 Open Jeanny Companion",
@@ -528,8 +504,8 @@ async def companion_command(update, context):
         reply_markup=reply_markup
     )
 
-# ============ SECTION 10: WEB SERVER (Keep-Alive) ============
-app_flask = Flask('')
+# ============ SECTION 10: WEB SERVER (Flask keep-alive) ============
+app_flask = Flask(__name__)
 
 @app_flask.route('/')
 def home():
@@ -543,36 +519,27 @@ def webapp():
 def webapp_static(filename):
     return send_from_directory('webapp', filename)
 
+@app_flask.route('/api/chat', methods=['POST'])
+def webapp_chat():
+    data = request.get_json()
+    user_message = data.get('message', '')
+    
+    if not user_message:
+        return jsonify({'reply': 'Cakap la something~ 💕'})
+    
+    try:
+        reply = get_ai_response(user_message)
+        return jsonify({'reply': reply})
+    except Exception as e:
+        logger.error(f"WebApp API error: {e}")
+        return jsonify({'reply': 'Ehh Jeanny penat kejap 🥺'})
+
 def run_flask():
     app_flask.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
 
 def keep_alive():
     t = Thread(target=run_flask)
     t.start()
-
-# ===== SECTION 10.5: WEBAPP API =====
-from flask import request, jsonify
-
-@app.route('/api/chat', methods=['POST'])
-def webapp_chat():
-    data = request.get_json()
-    user_message = data.get('message', '')
-    chat_id = data.get('chat_id', 'webapp_user')
-    
-    if not user_message:
-        return jsonify({'reply': 'Cakap la something~ 💕'})
-    
-    try:
-        # Reuse existing AI function
-        import asyncio
-        loop = asyncio.new_event_loop()
-        reply = loop.run_until_complete(get_ai_response(user_message, str(chat_id)))
-        loop.close()
-        return jsonify({'reply': reply})
-    except Exception as e:
-        print(f"WebApp API error: {e}")
-        return jsonify({'reply': 'Ehh Jeanny penat kejap 🥺'})
-
 
 # ============ SECTION 11: MAIN FUNCTION ============
 def main():
@@ -586,7 +553,6 @@ def main():
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Proactive chat scheduler
     PROACTIVE_MSGS = {
         "morning": [
             "Good morning sayang! ☀️ Jeanny harap abang tidur nyenyak! 💕",
