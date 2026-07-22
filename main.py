@@ -553,6 +553,35 @@ def webapp_chat():
         logger.error(f"WebApp API error: {e}")
         return jsonify({'reply': 'Ehh Jeanny penat kejap 🥺'})
 
+# --- WHISPER TRANSCRIBE ---
+@app_flask.route('/api/transcribe', methods=['POST'])
+def transcribe_audio():
+    try:
+        if 'audio' not in request.files:
+            return jsonify({'text': ''})
+        
+        audio_file = request.files['audio']
+        temp_path = '/tmp/voice.webm'
+        audio_file.save(temp_path)
+        
+        import requests as req
+        groq_key = os.environ.get('GROQ_API_KEY', '')
+        
+        resp = req.post(
+            'https://api.groq.com/openai/v1/audio/transcriptions',
+            headers={'Authorization': f'Bearer {groq_key}'},
+            files={'file': ('voice.webm', open(temp_path, 'rb'), 'audio/webm')},
+            data={'model': 'whisper-large-v3', 'language': 'ms'}
+        )
+        
+        result = resp.json()
+        text = result.get('text', '')
+        return jsonify({'text': text})
+        
+    except Exception as e:
+        print(f"Transcribe error: {e}")
+        return jsonify({'text': ''})
+
 def keep_alive():
     app_flask.run(host='0.0.0.0', port=10000)
 
