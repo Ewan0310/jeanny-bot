@@ -58,11 +58,24 @@ FALLBACK_MODELS = [
 ]
 
 NSFW_TRIGGERS = [
+    # Romantic
     "seks", "sex", "cium", "kiss", "peluk", "hug", "rindu", "sayang",
     "cinta", "love", "baby", "bogel", "naked", "ghairah", "stim",
     "hot", "romantis", "intim", "malam", "ranjang", "tubuh",
     "raba", "pegang", "hisap", "jilat", "buka baju",
     "kinky", "hentai", "nsfw", "daddy", "foreplay",
+    # Flirty/Mengatal
+    "comel", "cantik", "sexy", "seksi", "body", "lawa",
+    "gatal", "mengatal", "goda", "menggoda", "ayat",
+    "abang", "sayangku", "honey", "babe", "manja",
+    "cuddle", "peluk", "erat", "rapat", "dekat",
+    "malam", "sunyi", "berdua", "bilik", "tidur",
+    "tutup lampu", "buka", "lucut", "seluar", "baju",
+    "nafsu", "ghairah", "rangasang", "stim",
+    "rindu sangat", "tak tahan", "tahan", "puas",
+    # Cheeky/teasing
+    "jahat", "nakal", "liar", "buas", "ganas",
+    "skodeng", "usik", "kena", "sakat",
 ]
 
 # ============ MEMORY & MOOD CONFIG ============
@@ -528,18 +541,17 @@ def webapp_chat():
         return jsonify({'reply': 'Cakap la something~ 💕'})
     
     try:
-        reply = get_ai_response(user_message)
+        # Check if flirty — skip to NSFW model directly
+        if is_nsfw_message(user_message):
+            from telegram import Update
+            reply = get_ai_response(user_message)
+        else:
+            reply = get_ai_response(user_message)
         return jsonify({'reply': reply})
     except Exception as e:
         logger.error(f"WebApp API error: {e}")
         return jsonify({'reply': 'Ehh Jeanny penat kejap 🥺'})
 
-def run_flask():
-    app_flask.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
-
-def keep_alive():
-    t = Thread(target=run_flask)
-    t.start()
 
 # ============ SECTION 11: MAIN FUNCTION ============
 def main():
