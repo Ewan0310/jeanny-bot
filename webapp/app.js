@@ -22,6 +22,37 @@ try {
 let isTalking = false;
 let currentMood = 'happy';
 
+// ===== VOICE SYSTEM =====
+function speakText(text) {
+    if (!('speechSynthesis' in window)) return;
+    
+    // Clean text - remove emojis
+    let clean = text.replace(/[\u{1F600}-\u{1F9FF}]/gu, '').replace(/[\u{2600}-\u{26FF}]/gu, '').trim();
+    if (clean.length < 3) return;
+    
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(clean);
+    
+    // Try Malay/English voice
+    const voices = window.speechSynthesis.getVoices();
+    const malayVoice = voices.find(v => v.lang.startsWith('ms') || v.lang.startsWith('id'));
+    const englishVoice = voices.find(v => v.lang.startsWith('en'));
+    
+    if (malayVoice) utter.voice = malayVoice;
+    else if (englishVoice) utter.voice = englishVoice;
+    
+    utter.rate = 1.1;
+    utter.pitch = 1.4; // Cute high pitch
+    utter.volume = 0.8;
+    
+    window.speechSynthesis.speak(utter);
+}
+
+// Preload voices
+window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+};
+
 // ===== MOOD MAPPING =====
 const moodFaces = {
     happy:   { emoji: '😊', class: 'smile' },
@@ -52,8 +83,6 @@ function setMood(mood) {
     currentMood = mood;
     const m = moodFaces[mood] || moodFaces.happy;
     moodEmoji.textContent = m.emoji;
-
-    // Reset classes
     face.className = 'face';
     if (m.class) face.classList.add(m.class);
 }
@@ -62,10 +91,11 @@ function setMood(mood) {
 function showBubble(text, duration = 4000) {
     bubbleText.textContent = text;
     speechBubble.classList.add('show');
-
-    // Talking animation
     face.classList.add('talking');
     isTalking = true;
+
+    // Speak with voice!
+    speakText(text);
 
     setTimeout(() => {
         speechBubble.classList.remove('show');
@@ -84,7 +114,6 @@ function spawnHearts(count = 5) {
             heart.style.left = (30 + Math.random() * 40) + '%';
             heart.style.bottom = '30%';
             heartsContainer.appendChild(heart);
-
             setTimeout(() => heart.remove(), 3000);
         }, i * 200);
     }
@@ -104,11 +133,8 @@ async function sendMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
 
-    // Add user message
     addMessage(text, true);
     messageInput.value = '';
-
-    // Show thinking
     showBubble('Hmm... 🤔', 10000);
 
     try {
@@ -121,23 +147,18 @@ async function sendMessage() {
         const data = await response.json();
         const reply = data.reply || 'Ehh Jeanny blur kejap 😅';
 
-        // Add bot message
         addMessage(reply, false);
 
-        // Detect and set mood
         const mood = detectMood(reply);
         setMood(mood);
 
-        // Show speech bubble with reply (truncated)
         const shortReply = reply.length > 60 ? reply.substring(0, 60) + '...' : reply;
         showBubble(shortReply, 5000);
 
-        // Spawn hearts if loving/excited
         if (mood === 'loving' || mood === 'excited') {
             spawnHearts(5);
         }
 
-        // Blink randomly
         setTimeout(() => {
             face.classList.add('blink');
             setTimeout(() => face.classList.remove('blink'), 300);
@@ -149,7 +170,7 @@ async function sendMessage() {
     }
 }
 
-// ===== KEYBOARD SUPPORT =====
+// ===== KEYBOARD =====
 messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
@@ -177,10 +198,10 @@ character.addEventListener('click', () => {
     setMood('playful');
 });
 
-// ===== IDLE FACE MOVEMENT =====
+// ===== IDLE =====
 face.classList.add('idle');
 
-// ===== INITIAL GREETING =====
+// ===== GREETING =====
 setTimeout(() => {
     showBubble('Hai abang! Jeanny rindu! 💕', 4000);
     setMood('loving');
