@@ -556,10 +556,13 @@ def webapp_chat():
 def keep_alive():
     app_flask.run(host='0.0.0.0', port=10000)
 
-
 # ============ SECTION 11: MAIN FUNCTION ============
 def main():
-    keep_alive()
+    # Start Flask in a separate thread (non-blocking)
+    flask_thread = threading.Thread(target=keep_alive, daemon=True)
+    flask_thread.start()
+    logger.info("🌐 Web server started on port 10000")
+
     logger.info("🤖 Starting Jeanny Bot...")
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
