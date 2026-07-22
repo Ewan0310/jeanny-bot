@@ -518,7 +518,13 @@ async def companion_command(update, context):
     )
 
 # ============ SECTION 10: WEB SERVER (Flask keep-alive) ============
+from flask import Flask, send_from_directory, request, jsonify
+import os
+import threading
+
 app_flask = Flask(__name__)
+
+WEBAPP_DIR = os.environ.get('WEBAPP_DIR', 'webapp')
 
 @app_flask.route('/')
 def home():
@@ -526,11 +532,11 @@ def home():
 
 @app_flask.route('/webapp')
 def webapp():
-    return send_from_directory('webapp', 'index.html')
+    return send_from_directory(WEBAPP_DIR, 'index.html')
 
 @app_flask.route('/webapp/<path:filename>')
 def webapp_static(filename):
-    return send_from_directory('webapp', filename)
+    return send_from_directory(WEBAPP_DIR, filename)
 
 @app_flask.route('/api/chat', methods=['POST'])
 def webapp_chat():
@@ -541,16 +547,14 @@ def webapp_chat():
         return jsonify({'reply': 'Cakap la something~ 💕'})
     
     try:
-        # Check if flirty — skip to NSFW model directly
-        if is_nsfw_message(user_message):
-            from telegram import Update
-            reply = get_ai_response(user_message)
-        else:
-            reply = get_ai_response(user_message)
+        reply = get_ai_response(user_message)
         return jsonify({'reply': reply})
     except Exception as e:
         logger.error(f"WebApp API error: {e}")
         return jsonify({'reply': 'Ehh Jeanny penat kejap 🥺'})
+
+def keep_alive():
+    app_flask.run(host='0.0.0.0', port=10000)
 
 
 # ============ SECTION 11: MAIN FUNCTION ============
