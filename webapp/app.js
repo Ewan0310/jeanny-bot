@@ -1,4 +1,4 @@
-// ========== JEANNY COMPANION APP.JS (WITH VOICE) ==========
+// ========== JEANNY COMPANION APP.JS ==========
 
 const chatBox = document.getElementById('chat-box');
 const chatInput = document.getElementById('chat-input');
@@ -7,116 +7,117 @@ const micBtn = document.getElementById('mic-btn');
 const character = document.getElementById('character');
 const moodText = document.getElementById('mood-text');
 
-// ========== SPEECH SETUP ==========
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition = null;
-let isListening = false;
+// ========== VOICE INPUT (Record → Whisper) ==========
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
 
-if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'ms-MY'; // Bahasa Melayu
-    
-    recognition.onstart = () => {
-        isListening = true;
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            
+            if (blob.size < 500) {
+                addMessage('Ehh tak dengar apa pun, cakap kuat sikit 😅', 'jeanny');
+                return;
+            }
+
+            addMessage('🎤 Taipkan balik apa ko cakap...', 'system');
+
+            try {
+                const formData = new FormData();
+                formData.append('audio', blob, 'voice.webm');
+
+                const res = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                removeSystemMessages();
+
+                if (data.text && data.text.trim()) {
+                    chatInput.value = data.text;
+                    sendMessage();
+                } else {
+                    addMessage('Tak jelas la, cuba cakap lagi 🥺', 'jeanny');
+                }
+            } catch (err) {
+                removeSystemMessages();
+                addMessage('Audio error, try type je 💕', 'jeanny');
+            }
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
         micBtn.classList.add('listening');
         micBtn.textContent = '🔴';
         character.classList.add('speaking');
         addMessage('🎤 Mendengar...', 'system');
-    };
-    
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        chatInput.value = transcript;
-        removeSystemMessages();
-        sendMessage();
-    };
-    
-    recognition.onerror = (event) => {
-        console.error('Speech error:', event.error);
-        isListening = false;
+
+    } catch (err) {
+        console.error('Mic error:', err);
+        addMessage('Kena bagi permission mic dulu! 🎤', 'jeanny');
+    }
+}
+
+function stopRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
         micBtn.classList.remove('listening');
         micBtn.textContent = '🎤';
         character.classList.remove('speaking');
         removeSystemMessages();
-        if (event.error === 'not-allowed') {
-            addMessage('Ehh kena bagi permission mic dulu 😅', 'jeanny');
-        }
-    };
-    
-    recognition.onend = () => {
-        isListening = false;
-        micBtn.classList.remove('listening');
-        micBtn.textContent = '🎤';
-        character.classList.remove('speaking');
-        removeSystemMessages();
-    };
-} else {
-    // Hide mic if browser doesn't support
-    if (micBtn) micBtn.style.display = 'none';
+    }
 }
 
 // ========== VOICE OUTPUT (TTS) ==========
 function speakText(text) {
     if (!('speechSynthesis' in window)) return;
-    
-    // Stop any ongoing speech
     window.speechSynthesis.cancel();
-    
-    // Clean text - remove emojis and special chars
+
     const cleanText = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}💕❤️🥺😊😏🔥💀~]/gu, '').trim();
-    
     if (!cleanText) return;
-    
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'ms-MY';
     utterance.rate = 1.0;
-    utterance.pitch = 1.4; // Higher pitch = more feminine voice
-    
-    // Try to find Malay or female voice
+    utterance.pitch = 1.4;
+
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => v.lang.startsWith('ms')) || 
-                           voices.find(v => v.name.includes('Female')) ||
-                           voices.find(v => v.lang.startsWith('id')); // Indonesian close to Malay
-    if (preferredVoice) utterance.voice = preferredVoice;
-    
-    utterance.onstart = () => {
-        character.classList.add('speaking');
-    };
-    
-    utterance.onend = () => {
-        character.classList.remove('speaking');
-    };
-    
+    const preferred = voices.find(v => v.lang.startsWith('ms')) ||
+                      voices.find(v => v.lang.startsWith('id')) ||
+                      voices.find(v => v.name.includes('Female'));
+    if (preferred) utterance.voice = preferred;
+
+    utterance.onstart = () => character.classList.add('speaking');
+    utterance.onend = () => character.classList.remove('speaking');
+
     window.speechSynthesis.speak(utterance);
 }
 
-// Load voices (some browsers need this)
 if ('speechSynthesis' in window) {
     window.speechSynthesis.getVoices();
-    window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
-    };
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
 
 // ========== MIC BUTTON ==========
 if (micBtn) {
     micBtn.addEventListener('click', () => {
-        if (!recognition) {
-            addMessage('Browser ko tak support voice 😅', 'jeanny');
-            return;
-        }
-        
-        if (isListening) {
-            recognition.stop();
+        if (isRecording) {
+            stopRecording();
         } else {
-            try {
-                recognition.start();
-            } catch (e) {
-                console.error('Mic error:', e);
-                addMessage('Cuba tekan mic sekali lagi 🎤', 'jeanny');
-            }
+            startRecording();
         }
     });
 }
@@ -125,14 +126,11 @@ if (micBtn) {
 function addMessage(text, sender) {
     const div = document.createElement('div');
     div.className = `message ${sender}`;
-    
     if (sender === 'system') {
-        div.className = 'message system';
         div.style.fontStyle = 'italic';
         div.style.opacity = '0.6';
         div.style.textAlign = 'center';
     }
-    
     div.textContent = text;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -145,21 +143,16 @@ function removeSystemMessages() {
 
 function setMood(mood) {
     const moods = {
-        'happy': '😊 Happy',
-        'flirty': '😏 Flirty', 
-        'excited': '🤩 Excited',
-        'caring': '🥰 Caring',
-        'playful': '😜 Playful',
-        'shy': '😳 Shy',
-        'sad': '🥺 Sedih',
-        'angry': '😤 Marah'
+        'happy': '😊 Happy', 'flirty': '😏 Flirty', 'excited': '🤩 Excited',
+        'caring': '🥰 Caring', 'playful': '😜 Playful', 'shy': '😳 Shy',
+        'sad': '🥺 Sedih', 'angry': '😤 Marah'
     };
     if (moodText) moodText.textContent = moods[mood] || '💕 Jeanny';
 }
 
 function animateReaction(type) {
     character.classList.remove('bounce', 'shake', 'blush');
-    void character.offsetWidth; // Trigger reflow
+    void character.offsetWidth;
     character.classList.add(type);
     setTimeout(() => character.classList.remove(type), 1000);
 }
@@ -167,55 +160,40 @@ function animateReaction(type) {
 async function sendMessage() {
     const message = chatInput.value.trim();
     if (!message) return;
-    
-    // Add user message
+
     addMessage(message, 'user');
     chatInput.value = '';
-    
-    // Show typing
+
     const typingDiv = addMessage('Jeanny taip...', 'typing');
     typingDiv.style.fontStyle = 'italic';
     typingDiv.style.opacity = '0.5';
-    
-    // Animate thinking
     character.classList.add('thinking');
-    
+
     try {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: message })
         });
-        
         const data = await response.json();
-        
-        // Remove typing indicator
+
         typingDiv.remove();
         character.classList.remove('thinking');
-        
-        // Add Jeanny reply
         addMessage(data.reply, 'jeanny');
-        
-        // Speak the reply
         speakText(data.reply);
-        
-        // Detect mood from reply
+
         const reply = data.reply.toLowerCase();
-        if (reply.includes('😏') || reply.includes('nakal') || reply.includes('gatal')) {
-            setMood('flirty');
-            animateReaction('blush');
+        if (reply.includes('😏') || reply.includes('nakal')) {
+            setMood('flirty'); animateReaction('blush');
         } else if (reply.includes('🥺') || reply.includes('sedih')) {
             setMood('sad');
         } else if (reply.includes('haha') || reply.includes('😜')) {
-            setMood('playful');
-            animateReaction('bounce');
+            setMood('playful'); animateReaction('bounce');
         } else if (reply.includes('💕') || reply.includes('sayang')) {
-            setMood('caring');
-            animateReaction('bounce');
+            setMood('caring'); animateReaction('bounce');
         } else {
             setMood('happy');
         }
-        
     } catch (error) {
         typingDiv.remove();
         character.classList.remove('thinking');
@@ -225,7 +203,6 @@ async function sendMessage() {
 
 // ========== EVENT LISTENERS ==========
 sendBtn.addEventListener('click', sendMessage);
-
 chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
@@ -238,7 +215,8 @@ setInterval(() => {
     }
 }, 5000);
 
-// Welcome voice
+// Welcome
 setTimeout(() => {
-    speakText('Hai sayang! Jeanny dah sini~');
+    addMessage('Hai abang! Jeanny dah sini~ 💕', 'jeanny');
+    speakText('Hai abang! Jeanny dah sini~');
 }, 1500);
