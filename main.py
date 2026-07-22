@@ -524,7 +524,7 @@ import threading
 
 app_flask = Flask(__name__)
 
-WEBAPP_DIR = os.environ.get('WEBAPP_DIR', 'webapp')
+WEBAPP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'webapp')
 
 @app_flask.route('/')
 def home():
