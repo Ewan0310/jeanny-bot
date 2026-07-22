@@ -541,6 +541,30 @@ def keep_alive():
     t = Thread(target=run_flask)
     t.start()
 
+# ===== SECTION 10.5: WEBAPP API =====
+from flask import request, jsonify
+
+@app.route('/api/chat', methods=['POST'])
+def webapp_chat():
+    data = request.get_json()
+    user_message = data.get('message', '')
+    chat_id = data.get('chat_id', 'webapp_user')
+    
+    if not user_message:
+        return jsonify({'reply': 'Cakap la something~ 💕'})
+    
+    try:
+        # Reuse existing AI function
+        import asyncio
+        loop = asyncio.new_event_loop()
+        reply = loop.run_until_complete(get_ai_response(user_message, str(chat_id)))
+        loop.close()
+        return jsonify({'reply': reply})
+    except Exception as e:
+        print(f"WebApp API error: {e}")
+        return jsonify({'reply': 'Ehh Jeanny penat kejap 🥺'})
+
+
 # ============ SECTION 11: MAIN FUNCTION ============
 def main():
     keep_alive()
