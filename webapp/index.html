@@ -12,7 +12,7 @@
         <div class="header">
             <span class="header-emoji">💕</span>
             <span class="header-title">Jeanny</span>
-            <span class="header-mood" id="moodEmoji">😊</span>
+            <span class="header-mood" id="mood-text">😊 Happy</span>
         </div>
 
         <!-- Character Area -->
@@ -44,13 +44,14 @@
 
         <!-- Chat Area -->
         <div class="chat-area" id="chatArea">
-            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-box" id="chat-box"></div>
         </div>
 
-        <!-- Input Area -->
+        <!-- Input Area with MIC BUTTON -->
         <div class="input-area">
-            <input type="text" id="messageInput" placeholder="Cakap dengan Jeanny..." autocomplete="off">
-            <button id="sendBtn" onclick="sendMessage()">
+            <input type="text" id="chat-input" placeholder="Cakap dengan Jeanny..." autocomplete="off">
+            <button id="mic-btn" title="Cakap">🎤</button>
+            <button id="send-btn" title="Hantar">
                 <span>💕</span>
             </button>
         </div>
