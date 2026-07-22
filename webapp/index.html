@@ -2,52 +2,61 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jeanny 💕</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Jeanny Companion 💕</title>
+    <link rel="stylesheet" href="/webapp/style.css">
 </head>
 <body>
-    <div id="app">
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <span class="header-emoji">💕</span>
+            <span class="header-title">Jeanny</span>
+            <span class="header-mood" id="moodEmoji">😊</span>
+        </div>
+
         <!-- Character Area -->
-        <div id="character-area">
-            <div id="character-container">
-                <div id="character">
-                    <div id="face">
-                        <div id="eyes">
-                            <div class="eye left">
-                                <div class="pupil"></div>
-                            </div>
-                            <div class="eye right">
-                                <div class="pupil"></div>
-                            </div>
+        <div class="character-area">
+            <div class="character" id="character">
+                <div class="char-body">
+                    <!-- Face -->
+                    <div class="face" id="face">
+                        <div class="hair"></div>
+                        <div class="eye left-eye" id="leftEye">
+                            <div class="pupil"></div>
                         </div>
-                        <div id="mouth"></div>
-                        <div id="blush-left" class="blush"></div>
-                        <div id="blush-right" class="blush"></div>
-                    </div>
-                    <div id="hair"></div>
-                    <div id="body"></div>
-                    <div id="speech-bubble" class="hidden">
-                        <span id="bubble-text"></span>
+                        <div class="eye right-eye" id="rightEye">
+                            <div class="pupil"></div>
+                        </div>
+                        <div class="mouth" id="mouth"></div>
+                        <div class="blush left-blush"></div>
+                        <div class="blush right-blush"></div>
                     </div>
                 </div>
+                <!-- Speech Bubble -->
+                <div class="speech-bubble" id="speechBubble">
+                    <p id="bubbleText">Hai abang! 💕</p>
+                </div>
             </div>
-            <div id="mood-indicator">
-                <span id="mood-emoji">😊</span>
-                <span id="mood-text">Happy</span>
-            </div>
+            <!-- Floating Hearts -->
+            <div class="hearts-container" id="heartsContainer"></div>
         </div>
 
         <!-- Chat Area -->
-        <div id="chat-area">
-            <div id="messages"></div>
-            <div id="input-area">
-                <input type="text" id="message-input" placeholder="Cakap dengan Jeanny..." autocomplete="off">
-                <button id="send-btn">💕</button>
-            </div>
+        <div class="chat-area" id="chatArea">
+            <div class="chat-messages" id="chatMessages"></div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Cakap dengan Jeanny..." autocomplete="off">
+            <button id="sendBtn" onclick="sendMessage()">
+                <span>💕</span>
+            </button>
         </div>
     </div>
-    <script src="app.js"></script>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/webapp/app.js"></script>
 </body>
 </html>
