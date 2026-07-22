@@ -1,218 +1,188 @@
-// ===== JEANNY COMPANION MINI APP =====
+// ===== JEANNY COMPANION APP =====
 
-const API_URL = 'https://jeanny-bot.onrender.com';
-
-// DOM Elements
-const messagesDiv = document.getElementById('messages');
-const messageInput = document.getElementById('message-input');
-const sendBtn = document.getElementById('send-btn');
+const API_URL = '/api/chat';
+const chatMessages = document.getElementById('chatMessages');
+const messageInput = document.getElementById('messageInput');
+const speechBubble = document.getElementById('speechBubble');
+const bubbleText = document.getElementById('bubbleText');
 const character = document.getElementById('character');
-const mouth = document.getElementById('mouth');
-const bubbleText = document.getElementById('bubble-text');
-const speechBubble = document.getElementById('speech-bubble');
-const moodEmoji = document.getElementById('mood-emoji');
-const moodText = document.getElementById('mood-text');
-const blushLeft = document.getElementById('blush-left');
-const blushRight = document.getElementById('blush-right');
+const face = document.getElementById('face');
+const moodEmoji = document.getElementById('moodEmoji');
+const heartsContainer = document.getElementById('heartsContainer');
 
-// State
-let isTyping = false;
-let chatHistory = [];
-
-// Init Telegram WebApp
-if (window.Telegram && window.Telegram.WebApp) {
+// ===== INIT TELEGRAM WEBAPP =====
+try {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
+} catch (e) {
+    console.log('Not in Telegram WebApp');
 }
 
-// ===== MOOD SYSTEM =====
-const moods = {
-    happy:    { emoji: '😊', text: 'Happy', mouth: 'happy', blush: false },
-    excited:  { emoji: '😆', text: 'Excited', mouth: 'happy', blush: false },
-    loving:   { emoji: '😍', text: 'Loving', mouth: 'happy', blush: true },
-    rindu:    { emoji: '🥺', text: 'Rindu', mouth: 'normal', blush: true },
-    merajuk:  { emoji: '😤', text: 'Merajuk', mouth: 'normal', blush: false },
-    sad:      { emoji: '😢', text: 'Sedih', mouth: 'normal', blush: false },
-    playful:  { emoji: '😜', text: 'Playful', mouth: 'happy', blush: false },
-    sleepy:   { emoji: '😴', text: 'Mengantuk', mouth: 'normal', blush: false },
-    flirty:   { emoji: '😘', text: 'Flirty', mouth: 'happy', blush: true },
-    shy:      { emoji: '😳', text: 'Malu', mouth: 'normal', blush: true }
+// ===== STATE =====
+let isTalking = false;
+let currentMood = 'happy';
+
+// ===== MOOD MAPPING =====
+const moodFaces = {
+    happy:   { emoji: '😊', class: 'smile' },
+    excited: { emoji: '🤩', class: 'happy' },
+    loving:  { emoji: '🥰', class: 'blushing' },
+    rindu:   { emoji: '🥺', class: '' },
+    merajuk: { emoji: '😤', class: '' },
+    sad:     { emoji: '😢', class: '' },
+    playful: { emoji: '😏', class: 'blushing' },
+    sleepy:  { emoji: '😴', class: '' }
 };
 
-function setMood(moodName) {
-    const mood = moods[moodName] || moods.happy;
-    moodEmoji.textContent = mood.emoji;
-    moodText.textContent = mood.text;
-
-    // Mouth
-    mouth.className = '';
-    if (mood.mouth === 'happy') mouth.classList.add('happy');
-
-    // Blush
-    if (mood.blush) {
-        blushLeft.classList.add('visible');
-        blushRight.classList.add('visible');
-    } else {
-        blushLeft.classList.remove('visible');
-        blushRight.classList.remove('visible');
-    }
-}
-
-// ===== CHARACTER ANIMATIONS =====
-function characterTalk() {
-    mouth.classList.add('talking');
-    character.classList.add('character-talking');
-}
-
-function characterStopTalk() {
-    mouth.classList.remove('talking');
-    character.classList.remove('character-talking');
-}
-
-function characterReaction(type) {
-    character.classList.remove('character-happy', 'character-shy');
-    void character.offsetWidth; // trigger reflow
-    if (type === 'happy') {
-        character.classList.add('character-happy');
-        setMood('happy');
-    } else if (type === 'shy') {
-        character.classList.add('character-shy');
-        setMood('shy');
-    } else if (type === 'flirty') {
-        character.classList.add('character-shy');
-        setMood('flirty');
-    }
-    setTimeout(() => {
-        character.classList.remove('character-happy', 'character-shy');
-    }, 1000);
-}
-
-function showSpeechBubble(text) {
-    bubbleText.textContent = text.length > 80 ? text.substring(0, 80) + '...' : text;
-    speechBubble.classList.remove('hidden');
-    setTimeout(() => {
-        speechBubble.classList.add('hidden');
-    }, 4000);
-}
-
-// ===== CHAT FUNCTIONS =====
-function addMessage(text, type) {
-    const msg = document.createElement('div');
-    msg.className = `message ${type}`;
-    msg.textContent = text;
-    messagesDiv.appendChild(msg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-function addTypingIndicator() {
-    const msg = document.createElement('div');
-    msg.className = 'message typing';
-    msg.id = 'typing-indicator';
-    msg.textContent = '💕 Jeanny sedang taip...';
-    messagesDiv.appendChild(msg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-function removeTypingIndicator() {
-    const el = document.getElementById('typing-indicator');
-    if (el) el.remove();
-}
-
-// Detect mood from response
-function detectMoodFromResponse(text) {
-    const lower = text.toLowerCase();
-    if (lower.includes('😘') || lower.includes('cinta') || lower.includes('sayang') || lower.includes('rindu')) return 'loving';
-    if (lower.includes('haha') || lower.includes('😂') || lower.includes('lol') || lower.includes('gelak')) return 'excited';
-    if (lower.includes('😢') || lower.includes('sedih') || lower.includes('😭')) return 'sad';
-    if (lower.includes('😤') || lower.includes('merajuk') || lower.includes('hmm')) return 'merajuk';
-    if (lower.includes('malu') || lower.includes('😳') || lower.includes('hehe')) return 'shy';
-    if (lower.includes('😏') || lower.includes('nakal') || lower.includes('baby')) return 'flirty';
-    if (lower.includes('mengantuk') || lower.includes('zzz') || lower.includes('tidur')) return 'sleepy';
+// ===== DETECT MOOD FROM RESPONSE =====
+function detectMood(text) {
+    const t = text.toLowerCase();
+    if (t.includes('sayang') || t.includes('baby') || t.includes('💕') || t.includes('🥰')) return 'loving';
+    if (t.includes('rindu') || t.includes('🥺') || t.includes('miss')) return 'rindu';
+    if (t.includes('hmm') || t.includes('takpe') || t.includes('😤')) return 'merajuk';
+    if (t.includes('sedih') || t.includes('😢') || t.includes('sad')) return 'sad';
+    if (t.includes('haha') || t.includes('🤭') || t.includes('😏') || t.includes('kacau')) return 'playful';
+    if (t.includes('mengantuk') || t.includes('😴') || t.includes('penat')) return 'sleepy';
+    if (t.includes('!') && t.includes('💕')) return 'excited';
     return 'happy';
+}
+
+// ===== SET MOOD =====
+function setMood(mood) {
+    currentMood = mood;
+    const m = moodFaces[mood] || moodFaces.happy;
+    moodEmoji.textContent = m.emoji;
+
+    // Reset classes
+    face.className = 'face';
+    if (m.class) face.classList.add(m.class);
+}
+
+// ===== SHOW SPEECH BUBBLE =====
+function showBubble(text, duration = 4000) {
+    bubbleText.textContent = text;
+    speechBubble.classList.add('show');
+
+    // Talking animation
+    face.classList.add('talking');
+    isTalking = true;
+
+    setTimeout(() => {
+        speechBubble.classList.remove('show');
+        face.classList.remove('talking');
+        isTalking = false;
+    }, duration);
+}
+
+// ===== SPAWN HEARTS =====
+function spawnHearts(count = 5) {
+    for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+            const heart = document.createElement('div');
+            heart.className = 'floating-heart';
+            heart.textContent = ['💕', '💖', '💗', '💝', '❤️'][Math.floor(Math.random() * 5)];
+            heart.style.left = (30 + Math.random() * 40) + '%';
+            heart.style.bottom = '30%';
+            heartsContainer.appendChild(heart);
+
+            setTimeout(() => heart.remove(), 3000);
+        }, i * 200);
+    }
+}
+
+// ===== ADD CHAT MESSAGE =====
+function addMessage(text, isUser = false) {
+    const msg = document.createElement('div');
+    msg.className = `msg ${isUser ? 'user' : 'bot'}`;
+    msg.textContent = text;
+    chatMessages.appendChild(msg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 // ===== SEND MESSAGE =====
 async function sendMessage() {
     const text = messageInput.value.trim();
-    if (!text || isTyping) return;
+    if (!text) return;
 
     // Add user message
-    addMessage(text, 'user');
+    addMessage(text, true);
     messageInput.value = '';
-    isTyping = true;
 
-    // Show typing
-    addTypingIndicator();
-    characterTalk();
+    // Show thinking
+    showBubble('Hmm... 🤔', 10000);
 
     try {
-        // Call AI backend
-        const response = await fetch(`${API_URL}/api/chat`, {
+        const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: text,
-                chat_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'webapp_user'
-            })
+            body: JSON.stringify({ message: text })
         });
 
         const data = await response.json();
-        removeTypingIndicator();
-        characterStopTalk();
+        const reply = data.reply || 'Ehh Jeanny blur kejap 😅';
 
-        if (data.reply) {
-            // Detect mood
-            const mood = detectMoodFromResponse(data.reply);
-            setMood(mood);
+        // Add bot message
+        addMessage(reply, false);
 
-            // Character reaction
-            if (mood === 'loving' || mood === 'flirty') characterReaction('flirty');
-            else if (mood === 'shy') characterReaction('shy');
-            else if (mood === 'happy' || mood === 'excited') characterReaction('happy');
+        // Detect and set mood
+        const mood = detectMood(reply);
+        setMood(mood);
 
-            // Show speech bubble
-            showSpeechBubble(data.reply);
+        // Show speech bubble with reply (truncated)
+        const shortReply = reply.length > 60 ? reply.substring(0, 60) + '...' : reply;
+        showBubble(shortReply, 5000);
 
-            // Add bot message
-            addMessage(data.reply, 'bot');
-        } else {
-            addMessage('Ehh sorry, Jeanny penat kejap 🥺', 'bot');
+        // Spawn hearts if loving/excited
+        if (mood === 'loving' || mood === 'excited') {
+            spawnHearts(5);
         }
-    } catch (err) {
-        removeTypingIndicator();
-        characterStopTalk();
-        addMessage('Connection error la~ try again? 🥺', 'bot');
-        console.error(err);
-    }
 
-    isTyping = false;
+        // Blink randomly
+        setTimeout(() => {
+            face.classList.add('blink');
+            setTimeout(() => face.classList.remove('blink'), 300);
+        }, 2000);
+
+    } catch (error) {
+        console.error('API Error:', error);
+        showBubble('Alamak, error 😭', 3000);
+    }
 }
 
-// ===== EVENT LISTENERS =====
-sendBtn.addEventListener('click', sendMessage);
+// ===== KEYBOARD SUPPORT =====
 messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
 
-// Eye tracking (follow cursor)
-document.addEventListener('mousemove', (e) => {
-    const pupils = document.querySelectorAll('.pupil');
-    pupils.forEach(pupil => {
-        const rect = pupil.parentElement.getBoundingClientRect();
-        const eyeX = rect.left + rect.width / 2;
-        const eyeY = rect.top + rect.height / 2;
-        const angle = Math.atan2(e.clientY - eyeY, e.clientX - eyeX);
-        const distance = 3;
-        pupil.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
-    });
+// ===== IDLE BLINK =====
+setInterval(() => {
+    if (!isTalking && Math.random() < 0.3) {
+        face.classList.add('blink');
+        setTimeout(() => face.classList.remove('blink'), 300);
+    }
+}, 3000);
+
+// ===== TAP CHARACTER =====
+character.addEventListener('click', () => {
+    const tapResponses = [
+        'Hehe, kenapa? 🤭',
+        'Abang ni! 😤💕',
+        'Ada apa? 🥺',
+        'Jeanny tak buat apa pun! 😏',
+        'Ehh jangan kacau la! 🤭💕',
+    ];
+    const resp = tapResponses[Math.floor(Math.random() * tapResponses.length)];
+    showBubble(resp, 3000);
+    spawnHearts(3);
+    setMood('playful');
 });
 
-// ===== INIT =====
-setMood('happy');
-addMessage('Haii~ Jeanny rindu awak tau! 💕', 'bot');
+// ===== IDLE FACE MOVEMENT =====
+face.classList.add('idle');
 
-// Greeting based on time
-const hour = new Date().getHours();
-if (hour < 12) showSpeechBubble('Good morning sayang~ ☀️');
-else if (hour < 18) showSpeechBubble('Petang ni jom borak! 💕');
-else showSpeechBubble('Malam ni teman Jeanny ye~ 🌙');
+// ===== INITIAL GREETING =====
+setTimeout(() => {
+    showBubble('Hai abang! Jeanny rindu! 💕', 4000);
+    setMood('loving');
+    spawnHearts(3);
+}, 1000);
