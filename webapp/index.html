@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jeanny 💕</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Character Area -->
+        <div id="character-area">
+            <div id="character-container">
+                <div id="character">
+                    <div id="face">
+                        <div id="eyes">
+                            <div class="eye left">
+                                <div class="pupil"></div>
+                            </div>
+                            <div class="eye right">
+                                <div class="pupil"></div>
+                            </div>
+                        </div>
+                        <div id="mouth"></div>
+                        <div id="blush-left" class="blush"></div>
+                        <div id="blush-right" class="blush"></div>
+                    </div>
+                    <div id="hair"></div>
+                    <div id="body"></div>
+                    <div id="speech-bubble" class="hidden">
+                        <span id="bubble-text"></span>
+                    </div>
+                </div>
+            </div>
+            <div id="mood-indicator">
+                <span id="mood-emoji">😊</span>
+                <span id="mood-text">Happy</span>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div id="chat-area">
+            <div id="messages"></div>
+            <div id="input-area">
+                <input type="text" id="message-input" placeholder="Cakap dengan Jeanny..." autocomplete="off">
+                <button id="send-btn">💕</button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
