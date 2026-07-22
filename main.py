@@ -7,6 +7,7 @@ import asyncio
 import logging
 from datetime import datetime
 from flask import Flask
+from flask import Flask, send_from_directory
 from threading import Thread
 from gtts import gTTS
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -533,6 +534,14 @@ app_flask = Flask('')
 @app_flask.route('/')
 def home():
     return "Jeanny is alive! 💕"
+
+@app_flask.route('/webapp')
+def webapp():
+    return send_from_directory('webapp', 'index.html')
+
+@app_flask.route('/webapp/<path:filename>')
+def webapp_static(filename):
+    return send_from_directory('webapp', filename)
 
 def run_flask():
     app_flask.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
