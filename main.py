@@ -5,6 +5,7 @@ import json
 import random
 import asyncio
 import logging
+import threading
 from datetime import datetime
 from flask import Flask, send_from_directory, request, jsonify
 from threading import Thread
@@ -518,10 +519,6 @@ async def companion_command(update, context):
     )
 
 # ============ SECTION 10: WEB SERVER (Flask keep-alive) ============
-from flask import Flask, send_from_directory, request, jsonify
-import os
-import threading
-
 app_flask = Flask(__name__)
 
 WEBAPP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'webapp')
@@ -564,10 +561,9 @@ def transcribe_audio():
         temp_path = '/tmp/voice.webm'
         audio_file.save(temp_path)
         
-        import requests as req
         groq_key = os.environ.get('GROQ_API_KEY', '')
         
-        resp = req.post(
+        resp = requests.post(
             'https://api.groq.com/openai/v1/audio/transcriptions',
             headers={'Authorization': f'Bearer {groq_key}'},
             files={'file': ('voice.webm', open(temp_path, 'rb'), 'audio/webm')},
@@ -588,7 +584,7 @@ def keep_alive():
 # ============ SECTION 11: MAIN FUNCTION ============
 def main():
     # Start Flask in a separate thread (non-blocking)
-    flask_thread = threading.Thread(target=keep_alive, daemon=True)
+    flask_thread = Thread(target=keep_alive, daemon=True)
     flask_thread.start()
     logger.info("🌐 Web server started on port 10000")
 
@@ -651,11 +647,14 @@ def main():
         except Exception as e:
             logger.error(f"❌ Proactive error: {e}")
 
+    def run_proactive():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(proactive_message_job())
+        loop.close()
+
     scheduler = BackgroundScheduler()
-    scheduler.add_job(
-        lambda: asyncio.run_coroutine_threadsafe(proactive_message_job(), asyncio.get_event_loop()),
-        'interval', hours=4, jitter=1800
-    )
+    scheduler.add_job(run_proactive, 'interval', hours=4, jitter=1800)
     scheduler.start()
     logger.info("✅ Proactive chat scheduler started!")
 
